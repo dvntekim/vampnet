@@ -138,3 +138,14 @@ gainers and bleeders) · **Search**.
 Powered by the Nansen API. Cohort-selection endpoints (`pnl-leaderboard`) are used only
 internally to choose wallets; no Nansen label, PnL rank or Smart Money classification is
 displayed, per Nansen's Data Redistribution Guidelines.
+
+---
+
+## Live site
+**https://dvnykim.github.io/cavitation/** — served from `docs/index.html`, a single
+self-contained file. To publish an updated build:
+
+```bash
+python3 make.py --build && cp cavitation.html docs/index.html
+git add -A && git commit -m "rebuild" && git push
+```
