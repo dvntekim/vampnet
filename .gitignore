@@ -1,0 +1,11 @@
+# secrets
+.env
+.env.*
+
+# API cache — regenerate with `python3 make.py --demo` or `--full`.
+# cohort_v2_balances.json alone is ~662 MB; none of it belongs in git.
+data/
+
+# python
+__pycache__/
+*.pyc

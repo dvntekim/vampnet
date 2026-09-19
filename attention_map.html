@@ -1,0 +1,277 @@
+<title>Attention Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F7F6F3; --surface:#FFFFFF; --sunk:#F0EEE9; --line:#DCD8D0; --line2:#C8C3B8;
+  --ink:#16181D; --muted:#6B7180; --faint:#9AA0AC;
+  --accent:#C9741A; --accent-soft:rgba(201,116,26,.12);
+  --win:#1F7A4D; --miss:#B5443E; --side:#3B6FB5;
+  --c-robinhood:#C9741A; --c-bnb:#B08900; --c-ethereum:#5C5F9E; --c-base:#2E6FC9;
+  --c-solana:#7A4DB5; --c-hyperevm:#1F7A6B;
+  --shadow:0 1px 2px rgba(20,22,28,.06),0 8px 24px rgba(20,22,28,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0C0F16; --surface:#151A25; --sunk:#10141D; --line:#232A38; --line2:#323B4D;
+  --ink:#E8EBF2; --muted:#828DA3; --faint:#5C6579;
+  --accent:#F2A03D; --accent-soft:rgba(242,160,61,.14);
+  --win:#3FCF8E; --miss:#E5645E; --side:#5B9CF2;
+  --c-robinhood:#F2A03D; --c-bnb:#E8C547; --c-ethereum:#8E92E8; --c-base:#5B9CF2;
+  --c-solana:#B07CE8; --c-hyperevm:#3FCFB5;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --bg:#0C0F16; --surface:#151A25; --sunk:#10141D; --line:#232A38; --line2:#323B4D;
+  --ink:#E8EBF2; --muted:#828DA3; --faint:#5C6579;
+  --accent:#F2A03D; --accent-soft:rgba(242,160,61,.14);
+  --win:#3FCF8E; --miss:#E5645E; --side:#5B9CF2;
+  --c-robinhood:#F2A03D; --c-bnb:#E8C547; --c-ethereum:#8E92E8; --c-base:#5B9CF2;
+  --c-solana:#B07CE8; --c-hyperevm:#3FCFB5;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;
+     -webkit-font-smoothing:antialiased;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:32px 64px}
+h1,h2,h3{font-family:Archivo,system-ui,sans-serif;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:-.028em;line-height:1.04}
+h2{font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;
+         text-transform:uppercase;color:var(--accent)}
+.lede{color:var(--muted);font-size:17px;max-width:62ch;margin-top:14px}
+.lede b{color:var(--ink);font-weight:600}
+hr.rule{border:0;border-top:1px solid var(--line);margin:40px 0}
+/* metric strip */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;
+         background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:30px}
+.metric{background:var(--surface);padding:18px 18px 16px}
+.metric .k{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;
+           text-transform:uppercase;color:var(--faint)}
+.metric .v{font-family:Archivo,sans-serif;font-weight:800;font-size:34px;letter-spacing:-.02em;
+           margin-top:6px;font-variant-numeric:tabular-nums}
+.metric .s{font-size:12.5px;color:var(--muted);margin-top:4px}
+.metric.hero .v{color:var(--accent)}
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;
+       padding:20px;box-shadow:var(--shadow)}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+            flex-wrap:wrap;margin-bottom:6px}
+.note{font-size:12.5px;color:var(--muted);margin-top:10px}
+.cols{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}
+@media(min-width:900px){.cols{grid-template-columns:1.05fr .95fr}}
+.chartbox{width:100%;overflow-x:auto}
+svg{display:block;max-width:100%;height:auto}
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px}
+.lg{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.sw{width:11px;height:11px;border-radius:3px;flex:none}
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;
+   text-transform:uppercase;color:var(--faint);font-weight:400;padding:0 8px 8px 0;
+   border-bottom:1px solid var(--line)}
+td{padding:7px 8px 7px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.num{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10px;padding:1px 6px;
+     border-radius:4px;border:1px solid var(--line2);color:var(--muted);letter-spacing:.04em}
+.tag.win{color:var(--win);border-color:var(--win)}
+.tag.miss{color:var(--miss);border-color:var(--miss)}
+.chip{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px;flex:none}
+.bar{height:5px;border-radius:3px;background:var(--accent);opacity:.85}
+.barcell{min-width:70px}
+.scroll{overflow-x:auto}
+.disclaim{border-left:2px solid var(--accent);padding:12px 0 12px 16px;margin-top:14px;
+          font-size:13.5px;color:var(--muted);max-width:70ch}
+.disclaim b{color:var(--ink)}
+footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);
+       font-size:12px;color:var(--faint);display:flex;justify-content:space-between;
+       gap:12px;flex-wrap:wrap}
+</style>
+<div class="wrap">
+<div class="eyebrow">Onchain attention — 6 chains · 48 days · Aug 1 – Sep 17 2026</div>
+<h1>Where proven capital<br>went next.</h1>
+<p class="lede">131 wallets that each independently won on <b>two or more</b> of 35 systematically
+identified winning tokens — drawn from <b>2,519 distinct winners</b> across Robinhood, BNB, Base, Ethereum,
+HyperEVM and Solana. This is their money, tracked daily, across every chain at once.</p>
+
+<div class="metrics" id="metrics"></div>
+
+<div class="disclaim">
+<b>The strategy only works where winners repeat.</b> We froze a cohort on Aug&nbsp;31 with zero
+September information and tested it on September's new winners. Inside a persistent ecosystem it caught
+<b>75%</b>. Across all chains, <b>20%</b>. The difference is entirely <i>trader persistence</i> — and
+persistence turns out to be a property of the chain, not of the traders.
+</div>
+
+<hr class="rule">
+<div class="panel-head"><h2>Persistence · the ceiling on the strategy</h2>
+<span class="tag">out-of-time, Aug→Sep</span></div>
+<div class="panel">
+  <p class="note" style="margin-top:0">How often the <i>same</i> wallet wins more than one token on a
+  chain. Below roughly 4%, a cohort cannot be assembled and coverage collapses to zero — regardless of
+  how many coins you scan. BNB had the most coins (13) and still covered nothing.</p>
+  <div class="scroll"><table id="persist"></table></div>
+</div>
+
+<hr class="rule">
+<div class="panel-head"><h2>Chain migration · cohort capital</h2>
+<span class="mono" style="font-size:12px;color:var(--muted)" id="peaklab"></span></div>
+<div class="panel">
+  <div class="chartbox"><svg id="chainChart" viewBox="0 0 960 330" role="img"
+       aria-label="Stacked area chart of cohort capital by chain over 48 days"></svg></div>
+  <div class="legend" id="chainLegend"></div>
+  <p class="note" id="chainNote"></p>
+</div>
+
+<div class="cols">
+  <div class="panel">
+    <div class="panel-head"><h2>Conviction feed</h2><span class="tag">live candidates</span></div>
+    <p class="note" style="margin-top:0">Tokens ranked by leave-one-out cohort exposure. Rows without a
+    winner tag have the capital but have not run yet — that is the actionable list.</p>
+    <div class="scroll"><table id="sightings"></table></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>Coverage ledger</h2><span class="tag">leave-one-out</span></div>
+    <p class="note" style="margin-top:0">For each winner, only wallets qualifying via two <i>other</i>
+    coins are counted — so the cohort cannot be credited for the coin that selected it.</p>
+    <div class="scroll"><table id="coverage"></table></div>
+  </div>
+</div>
+
+<hr class="rule">
+<div class="panel-head"><h2>Top positions · daily cohort exposure</h2></div>
+<div class="panel">
+  <div class="chartbox"><svg id="tokChart" viewBox="0 0 960 420" role="img"
+       aria-label="Small multiple charts of cohort exposure per token"></svg></div>
+</div>
+
+<hr class="rule">
+<div class="panel-head"><h2>New-coin engine</h2><span class="tag">2 credits per run</span></div>
+<div class="panel">
+  <p class="note" style="margin-top:0">Tokens under 45 days old with real traction, cross-referenced
+  against cohort holdings. <b style="color:var(--ink)">30 of 102</b> new tokens already had proven capital
+  in them. This is what keeps the map alive as new coins launch.</p>
+  <div class="scroll"><table id="newcoins"></table></div>
+</div>
+
+<footer>
+  <span>Powered by Nansen API · balances, PnL leaderboards, token screener</span>
+  <span class="mono">cohort 131 · 2,813 tokens touched · 35 winners scanned</span>
+</footer>
+</div>
+<script>
+const D = {"days":["2026-08-01","2026-08-02","2026-08-03","2026-08-04","2026-08-05","2026-08-06","2026-08-07","2026-08-08","2026-08-09","2026-08-10","2026-08-11","2026-08-12","2026-08-13","2026-08-14","2026-08-15","2026-08-16","2026-08-17","2026-08-18","2026-08-19","2026-08-20","2026-08-21","2026-08-22","2026-08-23","2026-08-24","2026-08-25","2026-08-26","2026-08-27","2026-08-28","2026-08-29","2026-08-30","2026-08-31","2026-09-01","2026-09-02","2026-09-03","2026-09-04","2026-09-05","2026-09-06","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-12","2026-09-13","2026-09-14","2026-09-15","2026-09-16","2026-09-17"],"chains":["robinhood","bnb","ethereum","base","solana","hyperevm"],"chain_series":{"robinhood":[667281,712888,833673,914583,1054285,1237717,1282695,1396560,1502601,2448146,2626247,3207912,3353351,2957136,2812569,2914491,5101402,4758984,5330425,6393383,7381825,6763064,6867158,10440168,13154169,15135844,17867549,19923571,23748972,33317581,30163414,34772156,40475538,44283959,45847628,37088998,43430999,42038793,36115993,43359530,36619460,38451999,31792910,35642750,31678024,33418905,29572163,35633614],"bnb":[1322521,1327551,1100192,1030727,1745978,1642164,1826758,1820962,1874907,2132424,2053262,2107717,2075902,1992104,2152810,2123324,2489713,2478417,2596254,2945395,3086958,3357024,2948240,3256550,4187391,3961590,4959973,5243290,5435016,6056482,5036875,5141169,5459248,7034173,8469324,10146459,9313582,9284425,8552878,9242387,7436912,6890569,7073129,6532935,7135665,6724192,6433935,6794171],"ethereum":[981124,756027,961737,1123491,1106093,1079652,1179393,1216448,1443495,1519609,1648494,1568513,1372550,1066406,1234535,1249033,1373740,1678611,1656192,1805056,2067070,2266674,2365270,3195314,3465339,3357731,3532488,3406048,3483456,3757897,3635098,3475643,3848926,3776456,3745200,3363023,3489782,3725724,3687355,3584308,3665384,3703001,3789841,3925611,4148087,3736747,3663150,3741452],"base":[454825,452893,453961,490552,605357,589891,580807,649569,813288,852463,826339,840578,777132,790011,903656,1016229,1642231,1379444,1523901,1639972,1594791,2945752,2502241,2885072,2452777,2370126,2690056,2348765,2266398,2488603,2907904,2625364,2433347,2745810,3371246,3203013,3903758,3158956,2435395,2802370,2806288,2931547,2783642,3131166,3707854,3529713,3616754,3867714],"solana":[0,0,0,0,0,2,2,8,12,15,22,27,30,17517,17242,16372,142855,153895,149849,160835,230906,180720,192485,193465,194777,191449,588636,669894,713263,895928,782523,813796,483341,747272,806631,886781,2084914,2234517,2195814,598442,600320,438558,533658,712237,694517,732733,863052,1214381],"hyperevm":[742,742,744,10528,22449,12036,18058,16250,16331,27963,21560,16517,14214,13733,13526,15546,15812,14182,11360,32235,42267,54635,235116,163333,138089,152899,150056,119414,95573,90092,92515,81503,69823,63712,81052,92766,141666,146494,101192,76825,58483,60549,63732,70878,94516,70218,62635,67666]},"tokens":[{"sym":"PONS","chain":"robinhood","peak":20696127,"series":[226421,280026,313615,278185,242071,219694,254962,366993,405798,645664,567612,910972,902769,735623,722414,584461,899058,807409,980302,1198658,1033580,1011071,1118149,1844780,2535407,3866199,4587106,4950203,6952212,12285767,11185832,12822448,12192469,15806394,18843069,14083076,20696127,17012597,11681144,17871643,13435865,13749187,8427930,12542003,9677932,10628541,9496910,10155921],"wallets":[8,9,9,7,7,7,7,7,8,9,8,12,12,11,12,12,13,13,14,15,16,16,16,19,20,24,26,29,29,29,30,29,30,33,30,28,29,28,29,33,34,31,30,35,34,36,35,35]},{"sym":"AI","chain":"robinhood","peak":11886550,"series":[48241,53028,77719,72930,113542,175917,214667,177626,177215,362822,491419,508576,473724,614939,520851,598701,442540,385454,580587,760435,1645973,1487210,1286361,1810306,2202169,2599602,3449055,5091448,5814380,5883256,5110270,7989937,11886550,10393652,8937584,9133204,6394607,6327668,6955180,6942564,6344259,7484850,8422443,6910010,7035480,7984902,7012113,9086356],"wallets":[5,5,7,7,8,9,9,9,9,11,10,10,10,10,10,11,11,12,14,14,16,18,17,18,21,22,22,26,24,24,23,19,21,22,23,21,21,20,22,22,25,24,23,24,27,28,28,29]},{"sym":"CASHCAT","chain":"robinhood","peak":4650339,"series":[149503,150185,173020,250635,321558,454024,395212,383681,482148,839002,848225,896343,1031219,764663,704182,678966,1836349,1815953,1665692,2024983,2066820,1808505,1890421,2484550,3465565,3114843,3976956,3447212,3272210,3864111,3637451,3486737,4424500,4650339,4038685,818706,3384912,3756065,2924589,3078338,2916678,2933813,3305712,2917287,2782762,2656994,2670781,3292453],"wallets":[12,12,12,12,14,17,17,16,15,17,18,21,20,17,17,16,19,20,20,19,22,21,25,26,28,28,31,35,35,33,35,30,33,33,31,29,30,30,30,34,35,32,32,33,34,35,33,33]},{"sym":"MARSCOIN","chain":"bnb","peak":4167931,"series":[1191251,1206762,930353,870399,1565015,1453329,1609749,1600037,1638295,1886425,1823006,1840069,1821403,1713715,1545838,1421431,1189861,1012206,895391,833766,768415,1100813,908987,1057003,1059806,213838,1067708,1147965,1303384,1393204,1252723,1349359,1685990,2400422,3504436,4167931,3414845,3047449,2526970,2489753,2060914,2305573,2175938,1998782,1651756,1582843,1449331,1567785],"wallets":[6,6,4,4,3,3,3,3,3,4,4,4,4,4,4,4,5,4,5,4,5,5,5,5,7,5,7,7,7,8,8,7,8,9,11,11,10,12,11,13,11,13,12,12,12,12,12,13]},{"sym":"\u725b\u6765","chain":"bnb","peak":2557866,"series":[0,0,0,0,0,0,0,0,0,0,0,0,0,3446,194139,273234,875136,792015,939811,1297137,1433398,1396921,1094309,856930,862171,979185,1111321,1155082,1166050,1611466,869771,713332,625803,1043975,1090519,1436940,1393898,1841330,1750397,2557866,1769375,1199890,1200197,676518,1722620,1573672,1468285,1458527],"wallets":[0,0,0,0,0,0,0,0,0,0,0,0,0,3,6,4,5,4,7,8,9,10,9,9,9,9,6,8,8,9,10,9,10,11,13,13,14,13,14,15,15,14,12,14,14,14,15,15]},{"sym":"INDEX","chain":"robinhood","peak":2526614,"series":[65752,67443,71520,57812,63435,57043,70333,89110,88684,158313,153031,145261,161630,134845,137571,140822,279415,234572,246910,295132,372491,411699,336644,831998,825767,915694,1145307,1089068,1121655,1700561,1500191,1069834,1805506,2353672,2526614,2035284,1531807,1450071,1559446,1620631,1142874,1348406,914603,870633,884970,932653,779583,1003128],"wallets":[7,7,7,7,7,7,7,7,8,10,10,11,11,11,12,11,15,14,15,15,16,17,21,20,21,22,22,24,26,24,24,20,25,22,21,21,19,20,23,21,22,22,22,24,25,24,25,24]},{"sym":"HOOKR","chain":"robinhood","peak":2404045,"series":[0,0,0,0,0,4562,8028,16711,14379,12643,16926,34797,39623,29356,27572,28618,26858,51961,88375,188156,281812,217649,199591,530755,607621,774782,705979,887798,1012513,1466797,1623343,1744296,1569846,1980259,2404045,2369959,1819270,1721190,1528979,1807901,1637694,1107607,861806,1126885,680599,514530,411266,442409],"wallets":[0,0,0,0,0,2,3,3,3,3,3,4,5,6,7,8,8,11,12,17,18,18,17,19,18,22,20,21,25,25,25,25,22,21,22,22,19,20,21,21,21,21,20,20,20,19,17,16]},{"sym":"MEME","chain":"robinhood","peak":2184358,"series":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,253046,153684,853560,2184358,2099461,2131895,1683481,1462102,729837,1504218,1315092,1272618,930090,1432193],"wallets":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,12,12,14,16,19,19,18,18,19,20,19,19]},{"sym":"DELTA","chain":"robinhood","peak":1524362,"series":[0,0,0,0,0,0,0,0,1435,0,0,698,1667,50431,113492,103129,101895,81574,187283,278555,276739,240125,208525,476917,622017,753975,771021,705066,918992,1524362,1294299,533507,461776,440972,720590,552360,381975,409449,464891,491770,403041,396794,429943,311859,295008,422216,513265,521784],"wallets":[0,0,0,0,0,0,0,0,1,0,0,1,1,7,9,8,10,11,14,16,16,18,16,17,18,18,18,18,17,19,16,13,16,13,16,16,14,15,14,17,18,15,17,18,18,20,20,20]},{"sym":"MOO","chain":"robinhood","peak":1368743,"series":[195,78,0,0,0,0,0,0,0,124,239,198,154,251,184,175,4443,0,0,11557,23992,18943,13922,12166,8906,25726,24790,39758,162694,222004,220021,580424,1160846,976707,565057,988261,939287,911314,1183365,1201207,1285791,1368743,721161,470244,272347,318850,308879,462235],"wallets":[1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,0,0,3,4,4,3,3,2,3,6,8,16,14,13,16,18,18,14,18,19,17,17,17,14,18,12,11,11,10,10,9]},{"sym":"BASECAT","chain":"base","peak":1266500,"series":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,17316,35928,698275,632090,367669,403356,264243,959953,844550,922405,801967,705337,761946,723036,602287,719983,1009146,861151,926658,976794,1102862,1196655,1266500,692684,401262,227386,276514,187405,151663,175212,151001,122102,95725,93870],"wallets":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,13,12,12,10,11,12,13,14,13,14,15,18,18,19,19,19,18,19,17,20,18,18,17,17,16,16,16,14,17,16,15,13,14]},{"sym":"BONER","chain":"robinhood","peak":1182919,"series":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1588,592,12131,3170,301969,1182919,976929,1033975,999343,650589,564942,1156663,960371,854859,807912,861201,338223,923740,831771,1112234,627821,1150033],"wallets":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,2,1,5,6,4,7,8,6,7,7,8,8,8,10,8,10,11,12,8,10]},{"sym":"ZZZ","chain":"robinhood","peak":1155608,"series":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,73003,454326,405145,391588,1155608,1068293,1002315,635095,891787,673706,530800,524207,682576],"wallets":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,6,5,6,7,8,9,7,9,8,10,10,8]},{"sym":"WALLET","chain":"robinhood","peak":1049524,"series":[89511,74746,70799,87677,98910,108327,98577,106259,101474,109337,101467,89392,78785,74057,77904,70837,70564,62781,78559,94415,138130,117816,138674,172146,202010,207274,188589,267581,248674,161765,126430,119269,133181,110194,252364,488369,454255,441150,453899,537196,791686,715049,804117,1049524,929802,689473,477826,698646],"wallets":[5,5,5,5,5,7,7,6,6,6,6,6,5,5,5,5,6,6,6,6,9,9,9,10,10,10,10,10,10,9,9,9,9,7,9,9,11,11,11,11,11,11,10,11,11,10,8,9]}],"coverage":[{"sym":"MOO","chain":"robinhood","ret":22593,"covered":true,"wallets":12,"usd":1098650,"first":"2026-08-29","loo":116},{"sym":"AI","chain":"robinhood","ret":3565,"covered":true,"wallets":18,"usd":5755962,"first":"2026-08-01","loo":109},{"sym":"BASECAT","chain":"base","ret":3303,"covered":true,"wallets":11,"usd":269590,"first":"2026-08-15","loo":111},{"sym":"STONK","chain":"solana","ret":2273,"covered":false,"wallets":0,"usd":0,"first":null,"loo":1},{"sym":"QUOTRON","chain":"robinhood","ret":1840,"covered":true,"wallets":3,"usd":612314,"first":"2026-08-16","loo":120},{"sym":"\u725b\u6765","chain":"bnb","ret":1808,"covered":true,"wallets":12,"usd":293904,"first":"2026-08-14","loo":120},{"sym":"HOOKR","chain":"robinhood","ret":1755,"covered":true,"wallets":12,"usd":1418133,"first":"2026-08-12","loo":109},{"sym":"JOFF","chain":"hyperevm","ret":1716,"covered":true,"wallets":3,"usd":5380,"first":"2026-08-01","loo":127},{"sym":"PONS","chain":"robinhood","ret":1613,"covered":true,"wallets":30,"usd":8377520,"first":"2026-08-01","loo":115},{"sym":"WALLET","chain":"robinhood","ret":1377,"covered":true,"wallets":6,"usd":430808,"first":"2026-08-01","loo":120},{"sym":"HOOD","chain":"robinhood","ret":1335,"covered":false,"wallets":0,"usd":0,"first":null,"loo":127},{"sym":"BOW","chain":"robinhood","ret":1166,"covered":true,"wallets":9,"usd":279292,"first":"2026-08-19","loo":117},{"sym":"\u9f99\u867e","chain":"bnb","ret":1066,"covered":true,"wallets":3,"usd":28368,"first":"2026-09-03","loo":113},{"sym":"RAXOL","chain":"robinhood","ret":616,"covered":true,"wallets":7,"usd":118555,"first":"2026-08-21","loo":119},{"sym":"USELESS","chain":"bnb","ret":571,"covered":true,"wallets":3,"usd":356,"first":"2026-09-05","loo":126},{"sym":"USELESS","chain":"solana","ret":567,"covered":true,"wallets":1,"usd":10,"first":"2026-09-04","loo":1},{"sym":"LSK","chain":"ethereum","ret":538,"covered":true,"wallets":1,"usd":15897,"first":"2026-09-13","loo":125},{"sym":"BAN","chain":"bnb","ret":525,"covered":true,"wallets":3,"usd":1,"first":"2026-09-08","loo":127},{"sym":"DELTA","chain":"robinhood","ret":512,"covered":true,"wallets":13,"usd":274875,"first":"2026-08-09","loo":112},{"sym":"DRB","chain":"base","ret":512,"covered":true,"wallets":12,"usd":32977,"first":"2026-08-22","loo":123},{"sym":"BULLA","chain":"bnb","ret":497,"covered":false,"wallets":0,"usd":0,"first":null,"loo":114},{"sym":"MAX","chain":"bnb","ret":494,"covered":true,"wallets":2,"usd":31297,"first":"2026-08-04","loo":125},{"sym":"LSK","chain":"base","ret":444,"covered":false,"wallets":0,"usd":0,"first":null,"loo":126},{"sym":"INDEX","chain":"robinhood","ret":397,"covered":true,"wallets":18,"usd":395004,"first":"2026-08-01","loo":114},{"sym":"ANYONE","chain":"ethereum","ret":369,"covered":true,"wallets":1,"usd":0,"first":"2026-09-13","loo":124},{"sym":"RAM","chain":"hyperevm","ret":360,"covered":true,"wallets":1,"usd":14178,"first":"2026-08-31","loo":127},{"sym":"CATE","chain":"solana","ret":340,"covered":true,"wallets":1,"usd":50735,"first":"2026-09-09","loo":3},{"sym":"CAI","chain":"bnb","ret":312,"covered":true,"wallets":1,"usd":0,"first":"2026-09-08","loo":127},{"sym":"NPC","chain":"ethereum","ret":300,"covered":true,"wallets":3,"usd":12689,"first":"2026-08-06","loo":121},{"sym":"NPC","chain":"solana","ret":300,"covered":false,"wallets":0,"usd":0,"first":null,"loo":3},{"sym":"NPC","chain":"bnb","ret":296,"covered":true,"wallets":1,"usd":4329,"first":"2026-08-21","loo":124},{"sym":"NPC","chain":"base","ret":296,"covered":false,"wallets":0,"usd":0,"first":null,"loo":122},{"sym":"NOCK","chain":"base","ret":266,"covered":true,"wallets":8,"usd":86688,"first":"2026-08-15","loo":124},{"sym":"DOT","chain":"base","ret":262,"covered":true,"wallets":3,"usd":74054,"first":"2026-08-01","loo":121},{"sym":"SPR","chain":"bnb","ret":259,"covered":false,"wallets":0,"usd":0,"first":null,"loo":127},{"sym":"JUGGERNAUT","chain":"robinhood","ret":251,"covered":true,"wallets":12,"usd":257828,"first":"2026-08-01","loo":119},{"sym":"EDEL","chain":"base","ret":231,"covered":true,"wallets":3,"usd":9941,"first":"2026-08-22","loo":124}],"sightings":[{"sym":"PONS","chain":"robinhood","wallets":30,"usd":8377520,"winner":true},{"sym":"AI","chain":"robinhood","wallets":18,"usd":5755962,"winner":true},{"sym":"CASHCAT","chain":"robinhood","wallets":35,"usd":4650339,"winner":false},{"sym":"MARSCOIN","chain":"bnb","wallets":13,"usd":4167931,"winner":false},{"sym":"MEME","chain":"robinhood","wallets":20,"usd":2184358,"winner":false},{"sym":"HOOKR","chain":"robinhood","wallets":12,"usd":1418133,"winner":true},{"sym":"BONER","chain":"robinhood","wallets":12,"usd":1182919,"winner":false},{"sym":"ZZZ","chain":"robinhood","wallets":10,"usd":1155608,"winner":false},{"sym":"MOO","chain":"robinhood","wallets":12,"usd":1098650,"winner":true},{"sym":"TIBBIR","chain":"base","wallets":10,"usd":963116,"winner":false},{"sym":"STONKBROKER","chain":"robinhood","wallets":11,"usd":953860,"winner":false},{"sym":"MICRODUCK","chain":"robinhood","wallets":14,"usd":861502,"winner":false},{"sym":"FWA","chain":"ethereum","wallets":8,"usd":669773,"winner":false},{"sym":"HMM","chain":"robinhood","wallets":11,"usd":664006,"winner":false},{"sym":"QUOTRON","chain":"robinhood","wallets":3,"usd":612314,"winner":true},{"sym":"CARDS","chain":"solana","wallets":2,"usd":559011,"winner":false},{"sym":"ZCAT","chain":"solana","wallets":3,"usd":541050,"winner":false},{"sym":"UBIK","chain":"robinhood","wallets":11,"usd":538728,"winner":false}],"stats":{"cohort":131,"evm":127,"winners_scanned":35,"distinct_winners":2519,"recall_pct":85,"precision_pct":28.6,"base_rate":1.24,"lift":23,"days_early":16,"median_gain":424,"tokens_touched":2813,"capital_peak":62364701,"oot_overall":20,"oot_eco":75,"oot_pnl":773967,"best_chain":"robinhood","best_rate":8.6,"worst_rate":0.2,"rh_cohort":125},"persistence":[{"chain":"robinhood","traders":994,"repeat":85,"rate":8.6,"maxcoins":7,"cov":3,"covtot":5},{"chain":"bnb","traders":879,"repeat":37,"rate":4.2,"maxcoins":5,"cov":0,"covtot":3},{"chain":"base","traders":236,"repeat":2,"rate":0.8,"maxcoins":2,"cov":0,"covtot":2},{"chain":"solana","traders":499,"repeat":1,"rate":0.2,"maxcoins":2,"cov":0,"covtot":4},{"chain":"ethereum","traders":200,"repeat":0,"rate":0.0,"maxcoins":1,"cov":0,"covtot":1},{"chain":"polygon","traders":139,"repeat":0,"rate":0.0,"maxcoins":1,"cov":0,"covtot":0},{"chain":"arbitrum","traders":100,"repeat":0,"rate":0.0,"maxcoins":1,"cov":0,"covtot":0}],"oot":[{"sym":"ZCAT","chain":"solana","ret":11072.033796945812,"overlap":0,"pnl":0},{"sym":"RAYCAT","chain":"solana","ret":6225.694946023279,"overlap":0,"pnl":0},{"sym":"BLORB","chain":"robinhood","ret":2832.127169036623,"overlap":0,"pnl":0},{"sym":"ASTEROID","chain":"robinhood","ret":1559.0401927441935,"overlap":4,"pnl":248910.0142673171},{"sym":"OPTIMUS","chain":"robinhood","ret":1057.3792687743896,"overlap":5,"pnl":86214.73524495016},{"sym":"ORBIO","chain":"robinhood","ret":1014.690379459231,"overlap":4,"pnl":279609.21059609775},{"sym":"STONK","chain":"solana","ret":967.7326322749625,"overlap":0,"pnl":0},{"sym":"\u8774\u8776\u4eba\u751f","chain":"bnb","ret":638.6229430941994,"overlap":0,"pnl":0},{"sym":"BAN","chain":"bnb","ret":592.7466968391577,"overlap":0,"pnl":0},{"sym":"HOOD","chain":"robinhood","ret":444.95318572915465,"overlap":0,"pnl":0},{"sym":"LSK","chain":"ethereum","ret":387.7708135296821,"overlap":0,"pnl":0},{"sym":"LSK","chain":"base","ret":323.4037041744682,"overlap":0,"pnl":0},{"sym":"STONKEX","chain":"base","ret":280.96490214578654,"overlap":0,"pnl":0},{"sym":"CODEC","chain":"solana","ret":204.05793432689813,"overlap":0,"pnl":0},{"sym":"USELESS","chain":"bnb","ret":151.38129150699083,"overlap":0,"pnl":0}],"newcoins":[{"sym":"QUOTRON","chain":"robinhood","age":35,"mcap":24185380,"wallets":10,"usd":681110,"first":"2026-08-13"},{"sym":"ZCAT","chain":"solana","age":18,"mcap":130542987,"wallets":3,"usd":541050,"first":"2026-08-31"},{"sym":"FLORK","chain":"bnb","age":20,"mcap":6938100,"wallets":6,"usd":492101,"first":"2026-08-28"},{"sym":"STONKEX","chain":"base","age":24,"mcap":10266714,"wallets":15,"usd":354547,"first":"2026-08-24"},{"sym":"\ud83c\udf31 PAID","chain":"solana","age":2,"mcap":21655045,"wallets":1,"usd":297122,"first":"2026-09-15"},{"sym":"CBZEC","chain":"base","age":29,"mcap":3654936,"wallets":1,"usd":172940,"first":"2026-09-06"},{"sym":"INU","chain":"robinhood","age":6,"mcap":8901925,"wallets":10,"usd":154196,"first":"2026-09-11"},{"sym":"PLUMBER","chain":"base","age":36,"mcap":1317701,"wallets":8,"usd":151399,"first":"2026-08-12"},{"sym":"CETS","chain":"bnb","age":42,"mcap":7849591,"wallets":8,"usd":118404,"first":"2026-08-12"},{"sym":"FONE","chain":"solana","age":21,"mcap":4171647,"wallets":2,"usd":117126,"first":"2026-08-27"},{"sym":"IPOD","chain":"base","age":21,"mcap":4159477,"wallets":3,"usd":95896,"first":"2026-09-08"},{"sym":"STONX","chain":"base","age":13,"mcap":3625743,"wallets":8,"usd":95420,"first":"2026-09-05"},{"sym":"MCAT","chain":"bnb","age":10,"mcap":595066614,"wallets":1,"usd":44187,"first":"2026-09-16"},{"sym":"OTC","chain":"solana","age":20,"mcap":4429976,"wallets":1,"usd":28978,"first":"2026-09-05"}],"rh_thresholds":[{"t":2,"wallets":125,"cov":6,"tot":8},{"t":3,"wallets":29,"cov":5,"tot":8},{"t":4,"wallets":8,"cov":3,"tot":8}]};
+const CC = c => getComputedStyle(document.documentElement).getPropertyValue('--c-'+c).trim() || '#888';
+const fmtUSD = v => v>=1e9?'$'+(v/1e9).toFixed(1)+'B':v>=1e6?'$'+(v/1e6).toFixed(1)+'M':v>=1e3?'$'+Math.round(v/1e3)+'k':'$'+Math.round(v);
+const el = id => document.getElementById(id);
+
+/* metric strip */
+const S=D.stats;
+el('metrics').innerHTML = [
+ ['Coverage · robinhood', S.oot_eco+'%', '6 of 8 unseen Sep winners', 1],
+ ['Coverage · all chains', S.oot_overall+'%', 'naive, ignoring persistence', 0],
+ ['Precision lift', S.lift+'\u00d7', S.precision_pct+'% vs '+S.base_rate+'% base rate', 1],
+ ['Lead time', S.days_early+'d', 'median, first entry to peak', 1],
+ ['Frozen-cohort PnL', fmtUSD(S.oot_pnl), 'earned on winners it never held', 0]
+].map(([k,v,s,h])=>`<div class="metric${h?' hero':''}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+el('peaklab').textContent = 'peak '+fmtUSD(S.capital_peak);
+
+/* ---- stacked area: chain migration ---- */
+(function(){
+  const W=960,H=330,ml=54,mr=14,mt=14,mb=34, iw=W-ml-mr, ih=H-mt-mb;
+  const days=D.days, n=days.length, chains=D.chains;
+  const tot=days.map((_,i)=>chains.reduce((a,c)=>a+(D.chain_series[c][i]||0),0));
+  const max=Math.max(...tot)*1.06;
+  const x=i=>ml+iw*i/(n-1), y=v=>mt+ih-ih*v/max;
+  let out='', cum=new Array(n).fill(0);
+  // gridlines
+  for(let g=0;g<=4;g++){const v=max*g/4, yy=y(v);
+    out+=`<line x1="${ml}" y1="${yy}" x2="${W-mr}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`;
+    out+=`<text x="${ml-8}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--faint)" font-family="IBM Plex Mono, monospace">${fmtUSD(v)}</text>`;}
+  chains.forEach(c=>{
+    const s=D.chain_series[c];
+    let top=[],bot=[];
+    for(let i=0;i<n;i++){const b=cum[i], t=b+(s[i]||0); bot.push([x(i),y(b)]); top.push([x(i),y(t)]); cum[i]=t;}
+    const d='M'+top.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join('L')+'L'+bot.reverse().map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join('L')+'Z';
+    out+=`<path d="${d}" fill="${CC(c)}" fill-opacity="0.82" stroke="${CC(c)}" stroke-width="0.6"/>`;
+  });
+  // x labels
+  [0,Math.floor(n/3),Math.floor(2*n/3),n-1].forEach(i=>{
+    out+=`<text x="${x(i)}" y="${H-12}" text-anchor="${i===0?'start':i===n-1?'end':'middle'}" font-size="10" fill="var(--faint)" font-family="IBM Plex Mono, monospace">${days[i].slice(5)}</text>`;});
+  el('chainChart').innerHTML=out;
+  el('chainLegend').innerHTML=chains.map(c=>{
+    const s=D.chain_series[c], a=s[0], b=s[s.length-1];
+    const sh0=(a/tot[0]*100)||0, sh1=(b/tot[n-1]*100)||0;
+    return `<span class="lg"><span class="sw" style="background:${CC(c)}"></span>${c} <span class="mono" style="color:var(--ink)">${sh0.toFixed(0)}%\u2192${sh1.toFixed(0)}%</span></span>`;}).join('');
+  const rh=D.chain_series['robinhood']||[], bn=D.chain_series['bnb']||[];
+  el('chainNote').innerHTML=`Robinhood chain went from <b style="color:var(--ink)">${(rh[0]/tot[0]*100).toFixed(0)}%</b> to <b style="color:var(--ink)">${(rh[n-1]/tot[n-1]*100).toFixed(0)}%</b> of cohort capital while BNB fell from <b style="color:var(--ink)">${(bn[0]/tot[0]*100).toFixed(0)}%</b> to <b style="color:var(--ink)">${(bn[n-1]/tot[n-1]*100).toFixed(0)}%</b>. No single-chain tool can see this.`;
+})();
+
+/* ---- conviction feed ---- */
+(function(){
+  const rows=D.sightings, mx=Math.max(...rows.map(r=>r.usd));
+  el('sightings').innerHTML='<thead><tr><th>Token</th><th>Chain</th><th style="text-align:right">Wallets</th><th style="text-align:right">Cohort USD</th><th></th></tr></thead><tbody>'+
+   rows.map(r=>`<tr><td><span class="chip" style="background:${CC(r.chain)}"></span>${r.sym}${r.winner?' <span class="tag win">won</span>':''}</td>
+   <td style="color:var(--muted)">${r.chain}</td><td class="num">${r.wallets}</td>
+   <td class="num">${fmtUSD(r.usd)}</td>
+   <td class="barcell"><div class="bar" style="width:${Math.max(4,r.usd/mx*100)}%"></div></td></tr>`).join('')+'</tbody>';
+})();
+
+/* ---- coverage ledger ---- */
+(function(){
+  const rows=D.coverage.filter(r=>r.loo>5).sort((a,b)=>b.ret-a.ret);
+  el('coverage').innerHTML='<thead><tr><th>Winner</th><th style="text-align:right">Return</th><th style="text-align:right">Wallets</th><th>Held</th></tr></thead><tbody>'+
+   rows.map(r=>`<tr><td><span class="chip" style="background:${CC(r.chain)}"></span>${r.sym}</td>
+   <td class="num">${r.ret>=1000?(r.ret/1000).toFixed(1)+'k':r.ret}%</td>
+   <td class="num">${r.wallets||'\u2014'}</td>
+   <td>${r.covered?'<span class="tag win">yes</span>':'<span class="tag miss">missed</span>'}</td></tr>`).join('')+'</tbody>';
+})();
+
+/* ---- small multiples ---- */
+(function(){
+  const toks=D.tokens.slice(0,12), cols=4, rows=Math.ceil(toks.length/cols);
+  const W=960, cw=W/cols, chh=105, pad=12;
+  let out='';
+  toks.forEach((t,k)=>{
+    const cx=(k%cols)*cw, cy=Math.floor(k/cols)*chh;
+    const s=t.series, n=s.length, mx=Math.max(...s)||1;
+    const iw=cw-pad*2, ih=chh-46;
+    const X=i=>cx+pad+iw*i/(n-1), Y=v=>cy+28+ih-ih*v/mx;
+    let d='M'+s.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join('L');
+    let area=d+`L${X(n-1).toFixed(1)},${(cy+28+ih).toFixed(1)}L${X(0).toFixed(1)},${(cy+28+ih).toFixed(1)}Z`;
+    const col=CC(t.chain);
+    out+=`<path d="${area}" fill="${col}" fill-opacity="0.16"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.6"/>`;
+    out+=`<circle cx="${X(n-1).toFixed(1)}" cy="${Y(s[n-1]).toFixed(1)}" r="2.6" fill="${col}"/>`;
+    out+=`<text x="${cx+pad}" y="${cy+14}" font-size="12" font-weight="600" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">${t.sym}</text>`;
+    out+=`<text x="${cx+cw-pad}" y="${cy+14}" text-anchor="end" font-size="10.5" fill="var(--faint)" font-family="IBM Plex Mono, monospace">${fmtUSD(t.peak)}</text>`;
+    out+=`<text x="${cx+pad}" y="${cy+chh-6}" font-size="9.5" fill="var(--faint)" font-family="IBM Plex Mono, monospace">${t.chain}</text>`;
+  });
+  const svg=el('tokChart'); svg.setAttribute('viewBox',`0 0 ${W} ${rows*chh+8}`); svg.innerHTML=out;
+})();
+(function(){
+  const rows=D.persistence.filter(r=>r.traders>50);
+  const mx=Math.max(...rows.map(r=>r.rate));
+  el('persist').innerHTML='<thead><tr><th>Chain</th><th style="text-align:right">Traders</th>'+
+   '<th style="text-align:right">Repeat</th><th style="text-align:right">Recurrence</th><th></th>'+
+   '<th style="text-align:right">Sep coverage</th></tr></thead><tbody>'+
+   rows.map(r=>{const ok=r.rate>=4;
+     return `<tr><td><span class="chip" style="background:${CC(r.chain)}"></span>${r.chain}</td>
+     <td class="num">${r.traders}</td><td class="num">${r.repeat}</td>
+     <td class="num" style="color:${ok?'var(--win)':'var(--muted)'}">${r.rate}%</td>
+     <td class="barcell"><div class="bar" style="width:${Math.max(3,r.rate/mx*100)}%;background:${ok?'var(--win)':'var(--line2)'}"></div></td>
+     <td class="num">${r.covtot?((r.cov/r.covtot*100).toFixed(0)+'%'):'—'} <span style="color:var(--faint)">${r.covtot?('('+r.cov+'/'+r.covtot+')'):''}</span></td></tr>`;
+   }).join('')+'</tbody>';
+})();
+(function(){
+  const host=el('newcoins'); if(!host||!D.newcoins) return;
+  const mx=Math.max(...D.newcoins.map(r=>r.usd));
+  host.innerHTML='<thead><tr><th>New token</th><th>Chain</th><th style="text-align:right">Age</th>'+
+   '<th style="text-align:right">Wallets</th><th style="text-align:right">Cohort USD</th><th></th></tr></thead><tbody>'+
+   D.newcoins.map(r=>`<tr><td><span class="chip" style="background:${CC(r.chain)}"></span>${r.sym}</td>
+   <td style="color:var(--muted)">${r.chain}</td><td class="num">${r.age}d</td>
+   <td class="num">${r.wallets}</td><td class="num">${fmtUSD(r.usd)}</td>
+   <td class="barcell"><div class="bar" style="width:${Math.max(4,r.usd/mx*100)}%"></div></td></tr>`).join('')+'</tbody>';
+})();
+
+</script>

@@ -1,0 +1,438 @@
+<title>Liquidity Drift</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+/* ============================================================================
+   1. THEME — every colour. Edit freely; nothing here touches data or logic.
+   ========================================================================== */
+:root{
+  --void:#05030B; --ground:#0A0716; --panel:#110C22;
+  --line:#2A1F4D; --line-hot:#4B2F7A;
+  --cyan:#2DE2E6; --magenta:#FF3864; --yellow:#F9C80E; --violet:#9D4EDD; --green:#57E389;
+  --ink:#E9E4FF; --muted:#8A7FB8; --faint:#554A7A;
+  --grid:rgba(157,78,221,.06); --scan:rgba(45,226,230,.022);
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;background:var(--void);color:var(--ink);font-family:"Chakra Petch",system-ui,sans-serif;
+  line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9;
+  background:repeating-linear-gradient(0deg,var(--scan) 0 1px,transparent 1px 3px),
+             radial-gradient(ellipse at 50% 42%,transparent 46%,rgba(5,3,11,.78) 100%)}
+.wrap{max-width:1340px;margin:0 auto;padding-inline:20px;padding-block:24px 40px;position:relative;z-index:1}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap}
+.eyebrow{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.3em;
+  text-transform:uppercase;color:var(--cyan);opacity:.85}
+h1{font-size:clamp(30px,5vw,52px);font-weight:700;letter-spacing:-.02em;margin:.1em 0 0;line-height:1;
+  text-shadow:-1.5px 0 var(--magenta),1.5px 0 var(--cyan)}
+h1 .dim{color:var(--violet)}
+.sub{color:var(--muted);font-size:14px;max-width:54ch;margin-top:9px}
+.sub b{color:var(--ink);font-weight:600}
+.kpis{display:flex;gap:1px;background:var(--line);border:1px solid var(--line);flex-wrap:wrap}
+.kpi{background:var(--ground);padding:9px 15px;min-width:98px}
+.kpi .k{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--faint)}
+.kpi .v{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:21px;color:var(--cyan);
+  margin-top:2px;text-shadow:0 0 14px rgba(45,226,230,.55)}
+.kpi.alt .v{color:var(--magenta);text-shadow:0 0 14px rgba(255,56,100,.5)}
+
+/* ---- stage + flow ticker side by side ---- */
+.deck{display:grid;grid-template-columns:1fr;gap:14px;margin-top:20px}
+@media(min-width:1040px){.deck{grid-template-columns:1fr 266px}}
+.stage{position:relative;border:1px solid var(--line);
+  background:radial-gradient(ellipse at 50% 46%,rgba(157,78,221,.10),transparent 62%),var(--ground)}
+.stage canvas{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair}
+.hud{position:absolute;top:11px;left:14px;font-family:"JetBrains Mono",monospace;font-size:9.5px;
+  letter-spacing:.16em;color:var(--faint);text-transform:uppercase;pointer-events:none}
+.hud .date{display:block;font-size:24px;letter-spacing:.02em;color:var(--ink);margin-top:2px;
+  text-shadow:0 0 18px rgba(157,78,221,.6)}
+.legend{position:absolute;top:11px;right:14px;display:flex;flex-direction:column;gap:4px;
+  font-family:"JetBrains Mono",monospace;font-size:9.5px;color:var(--muted);pointer-events:none}
+.legend span{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.legend i{width:8px;height:8px;border-radius:50%;display:block}
+.ringkey{position:absolute;bottom:10px;left:14px;font-family:"JetBrains Mono",monospace;
+  font-size:9px;color:var(--faint);letter-spacing:.1em;pointer-events:none;line-height:1.7}
+.ringkey b{color:var(--muted);font-weight:400}
+#tip{position:absolute;pointer-events:none;opacity:0;transition:opacity .1s;
+  background:rgba(10,7,22,.97);border:1px solid var(--line-hot);padding:9px 11px;
+  font-family:"JetBrains Mono",monospace;font-size:11px;z-index:5;min-width:162px}
+#tip .t{color:var(--cyan);font-weight:700;letter-spacing:.06em}
+#tip .r{display:flex;justify-content:space-between;gap:16px;color:var(--muted);margin-top:3px}
+#tip .r b{color:var(--ink);font-weight:400}
+
+/* ---- flow ticker ---- */
+.ticker{border:1px solid var(--line);background:var(--ground);padding:13px;display:flex;
+  flex-direction:column;min-height:260px}
+.ticker h2{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--magenta);margin:0 0 9px;font-weight:400}
+.flow{font-family:"JetBrains Mono",monospace;font-size:11px;border-bottom:1px solid rgba(42,31,77,.6);
+  padding:6px 0}
+.flow:last-child{border-bottom:0}
+.flow .p{display:flex;align-items:center;gap:6px;color:var(--ink)}
+.flow .p em{color:var(--faint);font-style:normal}
+.flow .m{color:var(--faint);margin-top:2px;display:flex;justify-content:space-between}
+.flow .m b{color:var(--cyan);font-weight:400}
+.empty{color:var(--faint);font-family:"JetBrains Mono",monospace;font-size:11px;padding:10px 0}
+
+/* ---- transport ---- */
+.transport{display:flex;align-items:center;gap:13px;margin-top:13px;flex-wrap:wrap}
+button.play{background:var(--panel);border:1px solid var(--line-hot);color:var(--cyan);
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.2em;padding:9px 16px;
+  cursor:pointer;text-transform:uppercase;transition:.15s;flex:none}
+button.play:hover{background:var(--line);box-shadow:0 0 18px rgba(45,226,230,.25)}
+button.play:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.track{flex:1;min-width:230px;position:relative;height:42px;cursor:grab;touch-action:none}
+.track:active{cursor:grabbing}
+.track .rail{position:absolute;top:19px;left:0;right:0;height:2px;background:var(--line)}
+.track .heat{position:absolute;top:14px;left:0;right:0;height:12px;opacity:.5}
+.track .fill{position:absolute;top:19px;left:0;height:2px;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+.track .head{position:absolute;top:10px;width:3px;height:20px;background:var(--magenta);
+  box-shadow:0 0 14px var(--magenta);transform:translateX(-1.5px)}
+.track .ticks{position:absolute;top:27px;left:0;right:0;height:13px}
+.track .ticks b{position:absolute;font-family:"JetBrains Mono",monospace;font-size:9px;
+  color:var(--faint);font-weight:400;transform:translateX(-50%);white-space:nowrap}
+.speed{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--faint);letter-spacing:.12em}
+
+/* ---- panels ---- */
+.grid2{display:grid;grid-template-columns:1fr;gap:15px;margin-top:22px}
+@media(min-width:880px){.grid2{grid-template-columns:1.1fr .9fr}}
+.panel{border:1px solid var(--line);background:var(--ground);padding:15px}
+.panel h2{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--cyan);margin:0 0 4px;font-weight:400}
+.panel p.note{font-size:12px;color:var(--muted);margin:0 0 11px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint);font-weight:400;padding:0 8px 6px 0;
+  border-bottom:1px solid var(--line)}
+td{padding:5px 8px 5px 0;border-bottom:1px solid rgba(42,31,77,.5)}
+tr:last-child td{border-bottom:0}
+td.n{text-align:right;font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px}
+.bar{height:4px;background:var(--cyan);box-shadow:0 0 8px rgba(45,226,230,.6)}
+.bar.cold{background:var(--line-hot);box-shadow:none}
+.warn{border-left:2px solid var(--magenta);padding:10px 0 10px 14px;margin-top:18px;font-size:12.5px;
+  color:var(--muted);max-width:76ch}
+.warn b{color:var(--ink)}
+footer{margin-top:26px;padding-top:13px;border-top:1px solid var(--line);
+  font-family:"JetBrains Mono",monospace;font-size:9.5px;color:var(--faint);
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;letter-spacing:.1em}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="eyebrow">Nansen · repeat winners · 3 chains</div>
+      <h1>Liquidity <span class="dim">Drift</span></h1>
+      <p class="sub">Bubbles are tokens: <b>ring</b> = market cap, <b>core</b> = capital from wallets
+      that have won before. Only what is <b>moving</b> lights up. Drag the scrubber.</p>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </div>
+
+  <div class="deck">
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="hud">Timeline<span class="date" id="hudDate">—</span></div>
+      <div class="legend" id="legend"></div>
+      <div class="ringkey"><b>centre</b> = early cohort entry · <b>rim</b> = newly discovered<br>
+        <b>dim</b> = dormant · <b>bright</b> = capital moving now</div>
+      <div id="tip"></div>
+    </div>
+    <div class="ticker">
+      <h2>Rotations · this frame</h2>
+      <div id="flows"></div>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button class="play" id="play" aria-label="Play timeline">▶ Play</button>
+    <div class="track" id="track" role="slider" aria-label="Timeline scrubber"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+      <canvas class="heat" id="heat"></canvas>
+      <div class="rail"></div><div class="fill" id="fill"></div>
+      <div class="head" id="head"></div><div class="ticks" id="ticks"></div>
+    </div>
+    <div class="speed" id="speed">SPACE / ← →</div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Conviction · live</h2>
+      <p class="note">Cohort capital at the current frame. A core that outgrows its ring is proven
+      money sitting in something the market has not priced yet.</p>
+      <table id="convTbl"></table>
+    </div>
+    <div class="panel">
+      <h2>Persistence · ceiling on the strategy</h2>
+      <p class="note">How often the same wallet wins twice on a chain. Below ~4% a cohort cannot be
+      built and coverage collapses to zero.</p>
+      <table id="persistTbl"></table>
+    </div>
+  </div>
+
+  <div class="warn"><b>A discovery surface, not a prediction.</b> Flow magnitude does not predict
+  returns — tested four ways, all null. What holds out-of-time: on a chain where winners repeat,
+  <b>75%</b> of next month's winners were already held by a cohort frozen before they ran.</div>
+
+  <footer><span>Powered by Nansen API</span><span id="foot"></span></footer>
+</div>
+
+<script>
+/* ============================================================================
+   2. MOTION — scrubber feel + animation timing. All tunable, no data impact.
+   ========================================================================== */
+const MOTION = {
+  scrubEase    : 0.14,   // lower = heavier inertia on the scrubber
+  playSpeed    : 0.10,   // day-indices per frame while playing
+  particleRate : 0.00042,// flow-particle speed along an edge
+  rippleMs     : 900,    // impact ripple duration at a destination
+  focusEase    : 0.18,   // how fast focus dim/undim settles
+};
+/* ============================================================================
+   3. CONFIG — visual mapping + what counts as "active". Safe to edit.
+   ========================================================================== */
+const CONFIG = {
+  ringMin:4, ringMax:58, coreMin:2, coreMax:40,
+  edgeWindow:1,          // days either side of the cursor an edge stays visible
+  maxEdges:8,            // hard cap on rotations drawn at once — the main clarity dial
+  edgeMinShared:2,       // shared wallets required to draw a rotation
+  edgeMaxAlpha:0.62,
+  dormantAlpha:0.10,     // opacity floor for a node with no activity
+  activeBoost:1.8,       // how strongly activity drives brightness
+  activeGamma:0.55,      // <1 = only genuinely hot nodes reach full brightness
+  glow:{ring:15, core:24},
+  labelMinR:16,
+  focusDim:0.07,         // opacity of unrelated nodes while focusing
+  chainColor:{robinhood:'#FF3864', bnb:'#F9C80E', base:'#2DE2E6',
+              ethereum:'#9D4EDD', solana:'#57E389', hyperevm:'#FF8A3D'},
+  fallbackColor:'#8A7FB8'
+};
+
+const D = __PAYLOAD__;
+
+/* ============================================================================
+   4. ENGINE — fixed layout, continuous interpolation, activity-driven paint.
+   ========================================================================== */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const stage=document.getElementById('stage'), tip=document.getElementById('tip');
+const N=D.days.length, LAST=N-1, NODE={};
+D.nodes.forEach(n=>NODE[n.id]=n);
+let targetT=0,curT=0,playing=false,W=0,H=0,dpr=1,hoverId=null,focusAmt=0,ripples=[];
+
+const col=c=>CONFIG.chainColor[c]||CONFIG.fallbackColor;
+const lerp=(a,b,f)=>a+(b-a)*f, smooth=f=>f*f*(3-2*f);
+function sample(arr,t){const i=Math.max(0,Math.min(LAST,Math.floor(t)));
+  const j=Math.min(LAST,i+1); return lerp(arr[i],arr[j],smooth(t-i));}
+const fmt=v=>v>=1e9?'$'+(v/1e9).toFixed(2)+'B':v>=1e6?'$'+(v/1e6).toFixed(1)+'M':
+             v>=1e3?'$'+Math.round(v/1e3)+'k':'$'+Math.round(v);
+let MCMAX=1,USDMAX=1;
+D.nodes.forEach(n=>{MCMAX=Math.max(MCMAX,...n.mc);USDMAX=Math.max(USDMAX,...n.usd);});
+const rRing=v=>v<=0?0:CONFIG.ringMin+(CONFIG.ringMax-CONFIG.ringMin)*Math.sqrt(v/MCMAX);
+const rCore=v=>v<=0?0:CONFIG.coreMin+(CONFIG.coreMax-CONFIG.coreMin)*Math.sqrt(v/USDMAX);
+
+function resize(){const w=stage.clientWidth;H=Math.max(430,Math.min(680,Math.round(w*0.60)));
+  dpr=Math.min(window.devicePixelRatio||1,2);W=w;cv.width=w*dpr;cv.height=H*dpr;
+  cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);}
+/* inset the plot so the biggest ring still fits inside the canvas */
+const padX=()=>CONFIG.ringMax+18, padY=()=>CONFIG.ringMax+22;
+const px=n=>W/2+n.x*((W-2*padX())/2), py=n=>H/2+n.y*((H-2*padY())/2);
+
+/* edge strength inside the visible window around the cursor */
+function edgeAt(e,t){
+  let best=0;
+  const lo=Math.max(0,Math.floor(t)-CONFIG.edgeWindow), hi=Math.min(LAST,Math.ceil(t)+CONFIG.edgeWindow);
+  for(let i=lo;i<=hi;i++){
+    const w=e.w[i]; if(!w) continue;
+    const fall=1-Math.abs(i-t)/(CONFIG.edgeWindow+1);
+    best=Math.max(best,w*Math.max(0,fall));
+  }
+  return best;
+}
+function drawGrid(){ctx.save();ctx.strokeStyle='rgba(157,78,221,.06)';ctx.lineWidth=1;
+  for(let x=0;x<=W;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<=H;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}ctx.restore();}
+
+function draw(t){
+  ctx.clearRect(0,0,W,H); drawGrid();
+  const now=performance.now();
+  const related=new Set();
+  if(hoverId){related.add(hoverId);
+    for(const e of D.edges){if(e.a===hoverId)related.add(e.b);if(e.b===hoverId)related.add(e.a);}}
+  const dimF=v=>hoverId? (related.has(v)?1:CONFIG.focusDim*(1-focusAmt)+focusAmt*CONFIG.focusDim) :1;
+
+  /* ---- rotations (time-windowed) ---- */
+  ctx.save(); ctx.lineCap='round';
+  const liveEdges=D.edges.map(e=>({e,w:edgeAt(e,t)}))
+    .filter(r=>r.w>=CONFIG.edgeMinShared)
+    .sort((p,q)=>q.w-p.w).slice(0,CONFIG.maxEdges);
+  for(const {e,w} of liveEdges){
+    const a=NODE[e.a],b=NODE[e.b]; if(!a||!b) continue;
+    const vis=Math.min(dimF(e.a),dimF(e.b));
+    const x1=px(a),y1=py(a),x2=px(b),y2=py(b);
+    const mx=(x1+x2)/2+(y2-y1)*0.14, my=(y1+y2)/2-(x2-x1)*0.14;
+    const alpha=Math.min(CONFIG.edgeMaxAlpha,w/7)*vis;
+    const g=ctx.createLinearGradient(x1,y1,x2,y2);
+    g.addColorStop(0,col(a.chain)); g.addColorStop(1,col(b.chain));
+    ctx.globalAlpha=alpha;ctx.strokeStyle=g;ctx.lineWidth=Math.min(3.4,0.6+w*0.26);
+    ctx.shadowBlur=12;ctx.shadowColor=col(b.chain);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(mx,my,x2,y2);ctx.stroke();
+    /* particles: count and speed scale with the size of the rotation */
+    const nP=Math.min(4,1+Math.floor(w/3));
+    for(let k=0;k<nP;k++){
+      const p=((now*MOTION.particleRate*(0.7+w*0.05))+k/nP+e.a.length*0.07)%1;
+      const q=1-p,bx=q*q*x1+2*q*p*mx+p*p*x2,by=q*q*y1+2*q*p*my+p*p*y2;
+      ctx.globalAlpha=Math.min(1,alpha*2.4);ctx.fillStyle=col(b.chain);ctx.shadowBlur=16;
+      ctx.beginPath();ctx.arc(bx,by,1.6+w*0.06,0,7);ctx.fill();
+      if(p>0.965) ripples.push({x:x2,y:y2,c:col(b.chain),t0:now,r:rRing(sample(b.mc,t))});
+    }
+  }
+  ctx.restore();
+  /* ---- impact ripples ---- */
+  ripples=ripples.filter(r=>now-r.t0<MOTION.rippleMs);
+  ctx.save();
+  for(const r of ripples){
+    const f=(now-r.t0)/MOTION.rippleMs;
+    ctx.globalAlpha=(1-f)*0.5;ctx.strokeStyle=r.c;ctx.lineWidth=1.6;
+    ctx.shadowBlur=18;ctx.shadowColor=r.c;
+    ctx.beginPath();ctx.arc(r.x,r.y,r.r+f*26,0,7);ctx.stroke();
+  }
+  ctx.restore();
+  /* ---- nodes ---- */
+  const order=[...D.nodes].sort((a,b)=>sample(b.mc,t)-sample(a.mc,t));
+  for(const n of order){
+    const mc=sample(n.mc,t),usd=sample(n.usd,t),act=sample(n.act,t);
+    if(mc<=0&&usd<=0) continue;
+    const born=Math.min(1,Math.max(0,(t-n.first+1.2)/1.6)); if(born<=0) continue;
+    /* ACTIVITY drives brightness: dormant tokens recede, moving ones glow */
+    const heat=Math.pow(Math.min(1,act*CONFIG.activeBoost),CONFIG.activeGamma);
+    const live=CONFIG.dormantAlpha+(1-CONFIG.dormantAlpha)*heat;
+    const vis=born*dimF(n.id), A=live*vis;
+    const R=rRing(mc)*born, C=Math.min(R*0.92,rCore(usd)*born);
+    const x=px(n),y=py(n),c=col(n.chain),hot=hoverId===n.id;
+    ctx.save();
+    ctx.globalAlpha=0.92*A;ctx.strokeStyle=c;ctx.lineWidth=hot?2.4:1.3;
+    ctx.shadowBlur=CONFIG.glow.ring*(hot?1.8:live);ctx.shadowColor=c;
+    ctx.beginPath();ctx.arc(x,y,Math.max(1,R),0,7);ctx.stroke();
+    if(C>0.6){
+      ctx.globalAlpha=0.30*A;ctx.fillStyle=c;ctx.shadowBlur=CONFIG.glow.core*live;
+      ctx.beginPath();ctx.arc(x,y,C,0,7);ctx.fill();
+      ctx.globalAlpha=0.88*A;ctx.beginPath();ctx.arc(x,y,C*0.42,0,7);ctx.fill();
+    }
+    if(R>=CONFIG.labelMinR||hot){
+      ctx.globalAlpha=Math.min(1,vis*(hot?1:0.55+live*0.45));
+      ctx.shadowBlur=8;ctx.shadowColor='#05030B';ctx.fillStyle='#E9E4FF';
+      ctx.font='600 11px "Chakra Petch",sans-serif';ctx.textAlign='center';
+      const ly=(n.sym.charCodeAt(0)%2)?y+R+14:y-R-7;
+      ctx.fillText(n.sym.slice(0,14),x,ly);
+    }
+    ctx.restore(); n._sx=x;n._sy=y;n._sr=Math.max(R,9);
+  }
+  document.getElementById('hudDate').textContent=D.days[Math.max(0,Math.min(LAST,Math.round(t)))];
+  updateHead(); paintPanels(t);
+}
+function frame(){
+  if(playing){targetT+=MOTION.playSpeed;if(targetT>LAST){targetT=LAST;setPlay(false);}}
+  curT+=(targetT-curT)*MOTION.scrubEase;
+  if(Math.abs(targetT-curT)<0.0005)curT=targetT;
+  focusAmt+=((hoverId?1:0)-focusAmt)*MOTION.focusEase;
+  draw(curT); requestAnimationFrame(frame);
+}
+/* ============================================================================
+   5. TRANSPORT + PANELS
+   ========================================================================== */
+const track=document.getElementById('track'),head=document.getElementById('head'),
+      fill=document.getElementById('fill'),playBtn=document.getElementById('play');
+function updateHead(){const p=curT/LAST*100;head.style.left=p+'%';fill.style.width=p+'%';
+  track.setAttribute('aria-valuenow',Math.round(p));}
+function setT(cx){const r=track.getBoundingClientRect();
+  targetT=Math.max(0,Math.min(LAST,(cx-r.left)/r.width*LAST));}
+let dragging=false;
+track.addEventListener('pointerdown',e=>{dragging=true;track.setPointerCapture(e.pointerId);
+  setPlay(false);setT(e.clientX);});
+track.addEventListener('pointermove',e=>{if(dragging)setT(e.clientX);});
+track.addEventListener('pointerup',()=>dragging=false);
+track.addEventListener('pointercancel',()=>dragging=false);
+track.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'){targetT=Math.min(LAST,targetT+1);e.preventDefault();}
+  if(e.key==='ArrowLeft'){targetT=Math.max(0,targetT-1);e.preventDefault();}
+  if(e.key===' '){setPlay(!playing);e.preventDefault();}});
+function setPlay(v){playing=v;playBtn.textContent=v?'❚❚ Pause':'▶ Play';
+  if(v&&targetT>=LAST)targetT=0;}
+playBtn.addEventListener('click',()=>setPlay(!playing));
+cv.addEventListener('pointermove',e=>{
+  const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  let best=null,bd=1e9;
+  for(const n of D.nodes){if(n._sx==null)continue;
+    const d=Math.hypot(mx-n._sx,my-n._sy); if(d<n._sr&&d<bd){bd=d;best=n;}}
+  hoverId=best?best.id:null;
+  if(best){const t=curT;
+    tip.innerHTML=`<div class="t">${best.sym}</div>
+      <div class="r"><span>chain</span><b>${best.chain}</b></div>
+      <div class="r"><span>market cap</span><b>${fmt(sample(best.mc,t))}</b></div>
+      <div class="r"><span>cohort capital</span><b>${fmt(sample(best.usd,t))}</b></div>
+      <div class="r"><span>wallets in</span><b>${Math.round(sample(best.wal,t))}</b></div>
+      <div class="r"><span>first seen</span><b>${D.days[best.first]}</b></div>`;
+    tip.style.opacity=1;tip.style.left=Math.min(W-176,mx+16)+'px';tip.style.top=Math.max(4,my-10)+'px';
+  } else tip.style.opacity=0;});
+cv.addEventListener('pointerleave',()=>{hoverId=null;tip.style.opacity=0;});
+
+document.getElementById('kpis').innerHTML=[['Coverage',D.stats.oot+'%',0],
+  ['Precision',D.stats.lift+'×',1],['Lead time',D.stats.lead+'d',0],['Cohort',D.stats.cohort,1]]
+  .map(([k,v,a])=>`<div class="kpi${a?' alt':''}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+document.getElementById('legend').innerHTML=D.chains.map(c=>
+  `<span>${c}<i style="background:${col(c)};box-shadow:0 0 8px ${col(c)}"></i></span>`).join('');
+document.getElementById('ticks').innerHTML=[0,Math.floor(LAST/4),Math.floor(LAST/2),
+  Math.floor(3*LAST/4),LAST].map(i=>`<b style="left:${i/LAST*100}%">${D.days[i].slice(5)}</b>`).join('');
+document.getElementById('foot').textContent=
+  `${D.nodes.length} tokens · ${D.edges.length} rotations · ${D.days[0]} → ${D.days[LAST]}`;
+
+/* activity heat strip under the scrubber — shows WHERE the interesting frames are */
+(function(){
+  const c=document.getElementById('heat');
+  function paint(){const w=track.clientWidth||600;c.width=w*2;c.height=24;c.style.width=w+'px';
+    const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);
+    const tot=D.days.map((_,i)=>D.nodes.reduce((a,n)=>a+(n.act[i]||0),0));
+    const mx=Math.max(...tot)||1;
+    for(let i=0;i<N;i++){const h=(tot[i]/mx)*24;
+      g.fillStyle='rgba(157,78,221,'+(0.25+0.65*tot[i]/mx)+')';
+      g.fillRect(i/N*c.width,24-h,Math.max(1,c.width/N-1),h);}}
+  paint(); window.addEventListener('resize',paint);
+})();
+
+function paintPanels(t){
+  const rows=D.nodes.map(n=>({n,usd:sample(n.usd,t),w:sample(n.wal,t),act:sample(n.act,t)}))
+    .filter(r=>r.usd>2000).sort((a,b)=>b.usd-a.usd).slice(0,8);
+  const mx=Math.max(1,...rows.map(r=>r.usd));
+  document.getElementById('convTbl').innerHTML=
+   '<thead><tr><th>Token</th><th class="n">Wallets</th><th class="n">Cohort</th><th></th></tr></thead><tbody>'+
+   rows.map(r=>`<tr><td><span class="dot" style="background:${col(r.n.chain)};box-shadow:0 0 7px ${col(r.n.chain)}"></span>${r.n.sym.slice(0,15)}</td>
+   <td class="n">${Math.round(r.w)}</td><td class="n">${fmt(r.usd)}</td>
+   <td style="min-width:58px"><div class="bar" style="width:${Math.max(4,r.usd/mx*100)}%"></div></td></tr>`).join('')+'</tbody>';
+  /* rotation ticker */
+  const live=D.edges.map(e=>({e,w:edgeAt(e,t)})).filter(r=>r.w>=CONFIG.edgeMinShared)
+    .sort((a,b)=>b.w-a.w).slice(0,CONFIG.maxEdges);
+  const host=document.getElementById('flows');
+  host.innerHTML=live.length? live.map(({e,w})=>{
+    const a=NODE[e.a],b=NODE[e.b];
+    return `<div class="flow"><div class="p">
+      <span style="color:${col(a.chain)}">${a.sym.slice(0,11)}</span><em>→</em>
+      <span style="color:${col(b.chain)}">${b.sym.slice(0,11)}</span></div>
+      <div class="m"><span>${a.chain}→${b.chain}</span><b>${Math.round(w)} wallets</b></div></div>`;
+  }).join('') : '<div class="empty">no rotations in this window</div>';
+}
+(function(){
+  const rows=(D.persistence||[]).filter(r=>r.traders>50);
+  const mx=Math.max(1,...rows.map(r=>r.rate));
+  document.getElementById('persistTbl').innerHTML=
+   '<thead><tr><th>Chain</th><th class="n">Repeat</th><th class="n">Rate</th><th></th><th class="n">Cov</th></tr></thead><tbody>'+
+   rows.map(r=>{const ok=r.rate>=4;
+     return `<tr><td><span class="dot" style="background:${col(r.chain)};box-shadow:0 0 7px ${col(r.chain)}"></span>${r.chain}</td>
+     <td class="n">${r.repeat}/${r.traders}</td>
+     <td class="n" style="color:${ok?'var(--cyan)':'var(--faint)'}">${r.rate}%</td>
+     <td style="min-width:50px"><div class="bar${ok?'':' cold'}" style="width:${Math.max(4,r.rate/mx*100)}%"></div></td>
+     <td class="n">${r.covtot?Math.round(r.cov/r.covtot*100)+'%':'—'}</td></tr>`;}).join('')+'</tbody>';
+})();
+window.addEventListener('resize',resize);
+/* open on the latest frame: a tool should load in a working state, not an empty one.
+   Pressing Play rewinds to the beginning and replays the whole period. */
+targetT=curT=LAST;
+resize(); requestAnimationFrame(frame);
+</script>
