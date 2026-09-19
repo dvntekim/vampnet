@@ -264,5 +264,6 @@ __ENGINE__
 ENGINE = open("engine.js").read()
 payload = open("data/bubbles80.json").read()
 out = HEAD + BODY.replace("__ENGINE__", ENGINE).replace("__PAYLOAD__", payload)
-open("cavitation.html","w",encoding="utf-8").write(out)
-import os; print("site written", f"{os.path.getsize('cavitation.html'):,}", "bytes")
+import pathlib; pathlib.Path("docs").mkdir(exist_ok=True)
+open("docs/index.html","w",encoding="utf-8").write(out)
+import os; print("site written", f"{os.path.getsize('docs/index.html'):,}", "bytes")

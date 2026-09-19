@@ -218,6 +218,7 @@ function draw(t){
     }
   }
   paintHUD(t);
+  paintRail(t);
 }
 function paintHUD(t){
   const i=clamp(Math.round(t),0,LAST);
@@ -516,8 +517,6 @@ function paintRail(t){
   else if(pane==='move')paintMove(t);
   else paintFind(t);
 }
-const _draw=draw;
-draw=function(t){_draw(t);paintRail(t);};
 
 /* ===========================================================================
    6. BOOT — a short terminal sequence that sets tone and masks first layout

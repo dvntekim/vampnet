@@ -147,7 +147,7 @@ def step5_payload(cfg, bal, mc, ncoh):
 
 def step6_render():
     os.system(f"cd {ROOT} && python3 build_site.py")
-    log("6/6", f"site: cavitation.html ({os.path.getsize(os.path.join(ROOT,'cavitation.html')):,} bytes)")
+    log("6/6", f"site: docs/index.html ({os.path.getsize(os.path.join(ROOT,'docs/index.html')):,} bytes)")
 
 PRESETS={
  "demo":{"from":(dt.date.today()-dt.timedelta(days=30)).isoformat(),"to":dt.date.today().isoformat(),
@@ -184,4 +184,4 @@ if __name__=="__main__":
         mc=step4_mcap(cfg,bal,B)
         step5_payload(cfg,bal,mc,len(ev)+len(sol)); step6_render()
         print(f"\nDone in {time.time()-t0:.0f}s · {B.used} credits used")
-    print("\nOpen cavitation.html in a browser.")
+    print("\nOpen docs/index.html in a browser.")

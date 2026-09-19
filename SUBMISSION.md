@@ -91,7 +91,7 @@ $ python3 make.py --demo --cap 400
   [3/6] balances for 20 wallets
   [4/6] market caps: 26 to fetch
   [5/6] payload: 26 nodes, 105 edges, 31 days
-  [6/6] site: cavitation.html (84,398 bytes)
+  [6/6] site: docs/index.html (84,398 bytes)
 
 Done in 119s · 261 credits used
 ```

@@ -1,151 +1,137 @@
 # Cavitation
 
-**A map of where proven onchain capital moves next — built entirely on the Nansen API.**
+**A map of where proven onchain capital moves next, built entirely on the Nansen API.**
 
-Scrub 141 days and watch capital from 741 wallets that have *each won multiple memecoins*
-rotate between 80 tokens across 4 chains. Bubble ring = market cap, glowing core = cohort
-capital, edges = co-rotation. Only what is actually moving lights up.
+Scrub 141 days and watch capital from 741 wallets — each of which won **four or more
+separate memecoins** — rotate between 80 tokens across four chains. Ring = market cap,
+glowing core = cohort capital, edges = co-rotation. Only what is moving lights up.
 
-Live demo → `cavitation.html` (single file, 444 KB, no server needed)
+**Live: https://dvnykim.github.io/cavitation/**
 
 ---
 
-## Quick start (under 5 minutes)
+## Run it
 
 ```bash
-git clone <repo> && cd NansenBuildathon
+git clone https://github.com/dvnykim/cavitation && cd cavitation
 read -rs -p "Nansen API key: " K && printf 'NANSEN_API_KEY=%s\n' "$K" > .env && chmod 600 .env
 
-python3 make.py --demo      # live build from the API: ~2 min, ~260 credits
-open cavitation.html
+python3 make.py --demo        # live build from the API
+open docs/index.html
 ```
 
-No dependencies beyond Python 3.9+ standard library. No build step, no node_modules.
+Python 3.9+, standard library only. No dependencies, no build step, no server.
 
-| Command | What it does | Time | Credits |
+| Command | Scope | Time | Credits |
 |---|---|---|---|
-| `make.py --demo` | Live build, 30-day window, 40-wallet cohort | ~2 min | ~260 |
-| `make.py --full` | Production refresh, 141 days, 741 wallets | ~2 h | ~6,000 |
-| `make.py --build` | Re-render from cached data | ~5 s | **0** |
+| `make.py --demo` | 30-day window, 40-wallet cohort | ~2 min | ~260 |
+| `make.py --full` | 141 days, 741 wallets | ~2 h | ~6,000 |
+| `make.py --build` | Re-render from cache | ~5 s | **0** |
 
-`--cap N` sets a hard credit ceiling; the run stops safely and keeps partial data.
-All stages resume from cache, so an interrupted run never loses work.
+`--cap N` sets a hard credit ceiling. Every stage resumes from cache, so an interrupted
+run loses nothing.
 
 ---
 
-## What the product actually claims
+## What it claims
 
-We tested our own thesis and **most of it failed**. What shipped is only what survived.
+Validated out-of-time: the cohort was frozen on 31 August with **zero** September data,
+then tested against September's winners.
 
-| Claim | Evidence |
+| | |
 |---|---|
-| **91% coverage** of next month's winners | Cohort frozen 31 Aug with zero September data; caught 10 of 11 unseen September winners |
-| **23× precision lift** | 28.6% of high-conviction holdings became 200%+ winners vs a 1.24% base rate |
-| **~16 days median lead time** | First cohort entry → price peak, censoring-corrected |
-| **Persistence varies 40× by chain** | 8.6% repeat-winner rate on Robinhood vs 0.2% on Solana |
+| **91%** | of unseen September winners were already held by the frozen cohort (10 of 11) |
+| **23×** | precision lift — 28.6% of high-conviction holdings became 200%+ winners vs a 1.24% base rate |
+| **~16 days** | median lead from first cohort entry to price peak |
 
-**What we explicitly do NOT claim:** that flow magnitude predicts returns. We tested that four
-separate ways — token-level correlation, five alternative signal formulations, a cross-chain
-recurrence cohort, and chain-level aggregation — and **every result was null**. Crowding was
-mildly *negative*: ≥3 cohort wallets entering predicted −12.5% at 5 days.
+**What it does not claim: that flow magnitude predicts returns.** We tested that four ways
+— token-level correlation, five alternative signal formulations, a cross-chain recurrence
+cohort, and chain-level aggregation — and every result was null. Crowding was mildly
+*negative*: three or more cohort wallets entering predicted −12.5% at five days.
 
-This is a discovery surface, not a prediction engine. It tells you where to look.
-
----
-
-## How Nansen drives the logic
-
-Nansen is not a data source we render — it *is* the model. Every layer is derived:
-
-| Layer | Nansen endpoint | Role |
-|---|---|---|
-| Winner universe | `token-screener` | Defines "winning token" systematically (mcap, volume, gain) — not a hand-picked list |
-| **Cohort selection** | `tgm/pnl-leaderboard` | 32,128 traders scanned; wallets winning **4+ separate tokens** become the cohort |
-| Exposure over time | `profiler/address/historical-balances` | Daily per-token balances — the primitive everything else is computed from |
-| Market cap | `tgm/token-ohlcv` | Bubble ring size |
-| **Prices** | *derived* | `value_usd ÷ token_amount` from the balance rows — no external price feed |
-| **Rotations** | *derived* | Same wallet reduces A while increasing B on the same day |
-
-The cohort itself is a Nansen-derived construct. Remove Nansen and there is no product —
-not a missing chart, no product.
-
-### Two methodological choices that matter
-
-**Balances, not swaps.** Our first architecture traced DEX swaps and failed: on BNB
-launchpad tokens the settlement path (`execute(address[],uint256)` against a token contract)
-isn't classified as a DEX trade, so a wallet with a $1.2M position showed **8 trades and $0
-bought**. Balances measure *position*, not *execution*, so no settlement path can hide from
-them.
-
-**Flow = Δ(token_amount) × price, never Δ(value_usd).** Portfolio share conflates buying with
-price movement — one wallet's STONK share rose 58%→69% while its dollar value collapsed,
-purely because the rest of the portfolio shrank faster.
+This is a discovery surface. It tells you where to look, not what to buy.
 
 ---
 
-## Architecture
+## How Nansen drives it
+
+Nansen is not rendered here; the model is made of it.
+
+| Layer | Endpoint |
+|---|---|
+| Winner universe — defined programmatically, not hand-picked | `token-screener` |
+| **Cohort** — 32,128 traders scanned, wallets winning 4+ tokens qualify | `tgm/pnl-leaderboard` |
+| Daily per-token exposure | `profiler/address/historical-balances` |
+| Market cap | `tgm/token-ohlcv` |
+| **Prices** — `value_usd ÷ token_amount` from the balance rows | *derived* |
+| **Rotations** — same wallet reduces A while increasing B | *derived* |
+
+No external price feed anywhere in the stack. Remove Nansen and there is no product.
+
+**Two choices worth stating.** We track *balances, not swaps*: on BNB launchpad tokens the
+settlement path is not classified as a DEX trade, so a wallet holding $1.2M showed eight
+trades and $0 bought. Balances measure position, not execution. And flow is
+`Δ(token_amount) × price`, never `Δ(value_usd)` — portfolio share conflates buying with
+price drift.
+
+---
+
+## Layout
 
 ```
-make.py                 one command: API → rendered site
-├── scripts/nansen.py           API client (stdlib only, retries, credit accounting)
-├── scripts/fetch_balances.py   paginated balance fetch
-├── scripts/build_bubbles.py    cohort → nodes, edges, activity, layout
-└── build_site.py               payload + engine.js → single HTML file
-    └── engine.js               canvas renderer, camera, transport, panels
-
-data/bubbles80.json      ← the ONLY contract between backend and front-end
+make.py              entry point: API → rendered site
+build_site.py        payload + engine.js → single HTML file
+engine.js            canvas renderer, camera, transport, panels
+scripts/
+  nansen.py            API client with credit accounting
+  fetch_balances.py    paginated balance fetch
+  build_bubbles.py     cohort → nodes, edges, activity, layout
+docs/index.html      the published site (generated)
+research/            how the claims were validated — see research/README.md
 ```
 
-The front-end reads one JSON file. Every aesthetic constant lives in three blocks at the top
-of the generated HTML — `THEME` (colour), `MOTION` (feel), `CONFIG` (mapping) — so the
-visuals can be rewritten without touching the data pipeline.
+`data/bubbles80.json` is the only contract between backend and front-end. Every visual
+constant sits in three blocks at the top of the generated HTML — `THEME`, `MOTION`,
+`CONFIG` — so the design can be rewritten without touching the pipeline.
 
-### Layout: the map encodes time
-Nodes never move between frames — scrubbing animates only radius, glow and edges, which is
-what keeps it at 60fps. Position is fixed and meaningful: **angle = chain** (wedge width
-proportional to token count), **radius = when the cohort first entered** — centre is early
-conviction, rim is newly discovered. Rotation into fresh names reads as outward drift.
+**Position carries meaning.** Nodes never move between frames, which is what keeps it at
+60fps: angle = chain, radius = when the cohort first entered that token. Centre is early
+conviction, rim is newly discovered, so rotation into fresh names reads as outward drift.
 
 ---
 
 ## Controls
 
-| Input | Action |
+| | |
 |---|---|
-| drag / scroll | pan (with inertia) / zoom to cursor |
+| drag · scroll | pan with inertia · zoom to cursor |
 | `space` · `←` `→` | play-pause · step one day |
 | `R` · `H` · `/` | reframe · hide panel · search |
-| hover a bubble | market cap, cohort capital, wallets, **Fed by / Feeding** |
+| hover | market cap, cohort capital, wallets, **Fed by / Feeding** |
 
-Right rail: **Rank** (live ordering) · **Flows** (what's vamping what) · **Movers** (7-day
-gainers and bleeders) · **Search**.
+Right rail: **Rank** · **Flows** (what is draining into what) · **Movers** (7-day gainers
+and bleeders) · **Search**.
 
 ---
 
-## Known limits
+## Limits
 
 - **Solana ↔ EVM rotations are unobservable.** The address spaces are disjoint — an EVM
-  keypair cannot hold a Solana token, and our method requires the same wallet on both sides.
-  Solana↔Solana edges do appear, but the Solana cohort is only 33 wallets because Solana's
-  repeat-winner rate is 0.2%.
-- **Coverage is ecosystem-bound.** 91% on Robinhood, ~0% on chains below ~4% recurrence.
-  The Persistence table reports this per chain rather than hiding it.
-- **Co-rotation is not causation.** We label edges "Fed by / Feeding" on shared-wallet
-  evidence; direct A→B attribution was tested and is not reliable.
+  keypair cannot hold a Solana token, and the method requires the same wallet on both
+  sides. Solana ↔ Solana edges do appear, but the Solana cohort is 33 wallets because
+  Solana's repeat-winner rate is 0.2%.
+- **Coverage is ecosystem-bound.** 91% on Robinhood; near zero on chains below ~4%
+  repeat-winner rate. The Persistence panel reports this per chain rather than hiding it.
+- **Co-rotation is not causation.** Edges are labelled "Fed by / Feeding" on shared-wallet
+  evidence. Direct A→B attribution was tested and is not reliable.
 - One 141-day window, one market regime.
-
-## Attribution
-Powered by the Nansen API. Cohort-selection endpoints (`pnl-leaderboard`) are used only
-internally to choose wallets; no Nansen label, PnL rank or Smart Money classification is
-displayed, per Nansen's Data Redistribution Guidelines.
 
 ---
 
-## Live site
-**https://dvnykim.github.io/cavitation/** — served from `docs/index.html`, a single
-self-contained file. To publish an updated build:
+## Attribution
 
-```bash
-python3 make.py --build && cp cavitation.html docs/index.html
-git add -A && git commit -m "rebuild" && git push
-```
+Powered by the Nansen API. Cohort-selection endpoints (`tgm/pnl-leaderboard`) are used
+only internally to choose wallets — no Nansen label, PnL rank or Smart Money
+classification is displayed, per Nansen's Data Redistribution Guidelines.
+
+MIT licensed.
