@@ -126,6 +126,9 @@ scripts/
   build_bubbles.py     cohort → nodes, edges, activity, clustered layout
   restamp.py           re-solve layout / refresh claims, no API key, 0 credits
   verify_build.py      the publish gate — both CI workflows run it
+research/scripts/
+  out_of_time.py       frozen-cohort coverage test; --write-claims updates claims.json
+  check_claims.py      fails if a displayed number drifts from its run artifact
   measure_perf.js      paste into DevTools: draw cost and frame interval, kept apart
 docs/index.html      the published site (generated)
 docs/og.png          social card (regenerate after a visual change)

@@ -43,6 +43,17 @@ which to win four separate tokens; the map earns 741 at the same threshold over 
 That makes this a test of the *method* at the map's threshold, not of the map's exact
 cohort — a distinction worth stating before anyone else does.
 
+**When the cohort arrived.** Balances are only fetched from the first day of the test
+window, so entries cannot be observed before it. Four of the ten covered winners
+(OPTIMUS, ORBIO, PRISM, WEBSITE) were already held on that first observable day, meaning
+the position was taken *at or before* the window opened — the cohort was positioned before
+September began, not reacting inside it. The remaining six were picked up on days 2, 3, 4,
+6, 6 and 13. No covered winner was first held in the final week.
+
+`price_change` in the artifact is a **ratio, not a percent** (the screener filter is
+`min_gain: 1.0`, meaning +100%), so ORBIO's `16` is roughly +1,500%. Read it as a multiple
+or the numbers look absurdly small.
+
 Re-run at any freeze date with:
 
 ```bash
