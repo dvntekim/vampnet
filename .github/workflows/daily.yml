@@ -40,7 +40,7 @@ jobs:
 
       - name: Commit and publish
         run: |
-          git config user.name  "cavitation-bot"
+          git config user.name  "vampnet-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/cache.json.gz data/mcap_deep.json data/bubbles80.json docs/index.html
           if git diff --cached --quiet; then

@@ -99,6 +99,37 @@ function edgeAt(e,t){
   return best;
 }
 const shown=n=>chainOn[n.chain];
+/* ---- newly entered tokens, and capital arriving in them --------------------
+   A position the cohort opened days ago, being fed by a name it has held for
+   months, is the most actionable thing this map can show — and it is almost
+   always small in absolute terms, so it is precisely what a top-N edge cap
+   throws away. 861 of the 1,062 such rotations in this window fall below that
+   cap. They are drawn regardless. */
+const ageAt=(n,t)=>t-n.first;
+const isNew=(n,t)=>{const a=ageAt(n,t);return a>=0&&a<=CONFIG.newDays;};
+/* The feeder has to be a name worth following, not merely an older one: capital
+   leaving a top-ranked winner for a days-old position is the claim. */
+const bigName=n=>n.rank<CONFIG.freshSourceRank;
+const isFreshInflow=(e,t)=>isNew(NODE[e.b],t)&&!isNew(NODE[e.a],t)&&bigName(NODE[e.a]);
+function freshInto(id,t){
+  /* established feeders of one new token, strongest first */
+  return (IN[id]||[]).map(e=>({s:NODE[e.a],w:edgeAt(e,t)}))
+    .filter(r=>r.w>=CONFIG.freshMinShared&&!isNew(r.s,t)&&bigName(r.s))
+    .sort((a,b)=>b.w-a.w);
+}
+function freshBoard(t){
+  const out=[];
+  for(const n of D.nodes){
+    if(!shown(n)||!isNew(n,t))continue;
+    const src=freshInto(n.id,t);
+    if(!src.length)continue;
+    /* weight the feeder's standing: capital leaving a proven name says more
+       than the same wallets leaving another new one */
+    const score=src.reduce((a,r)=>a+r.w*Math.log10(Math.max(10,r.s.peak)),0);
+    out.push({n,src,score,age:Math.round(ageAt(n,t)),usd:sample(n.usd,t)});
+  }
+  return out.sort((a,b)=>b.score-a.score);
+}
 /* Draw order is by rank and never changes — sorting 80 nodes every frame was pure
    waste. Rebuilt only when a chain filter toggles. */
 let ORDER=[];
@@ -114,82 +145,88 @@ function textW(txt,fs){
 }
 function rebuildOrder(){ORDER=D.nodes.filter(shown).sort((a,b)=>b.rank-a.rank);rebuildHulls();}
 
-/* ---- chain territories ------------------------------------------------------
-   Node positions are frozen, so each chain's hull is solved once in world space
-   and only projected per frame. The hull is what makes a cluster read as a place
-   rather than as a coincidence, and it labels the colours where they are used —
-   the legend says which hue is which chain, the hull says which region is. */
-const HULLS={};
-function convexHull(pts){
-  if(pts.length<3)return pts.slice();
-  const p=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
-  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
-  const lo=[],up=[];
-  for(const q of p){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop();lo.push(q);}
-  for(let i=p.length-1;i>=0;i--){const q=p[i];
-    while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=0)up.pop();up.push(q);}
-  lo.pop();up.pop();
-  return lo.concat(up);
-}
+/* ---- rotation neighbourhoods -------------------------------------------------
+   Groups follow COMMUNITIES, not chains. Chain is already unambiguous from the
+   colour and the chips; what colour cannot show is which tokens rotate as a
+   pack, and several packs span more than one chain — which a chain-shaped
+   layout could not have revealed.
+
+   Drawn as corner brackets around a bounding box rather than as a filled hull.
+   Communities interleave in space, and overlapping blobs turn into one
+   unreadable shape, whereas brackets state an extent with almost no ink and
+   stay legible stacked three deep. Positions are frozen, so the box is solved
+   once in world space and only projected. */
+const GROUPS={};
 function rebuildHulls(){
-  for(const k in HULLS)delete HULLS[k];
-  for(const c of D.chains){
-    if(!chainOn[c])continue;
-    const ns=D.nodes.filter(n=>n.chain===c);
-    if(!ns.length)continue;
-    HULLS[c]={hull:convexHull(ns.map(n=>[n.x,n.y])),n:ns.length,
-              cx:ns.reduce((a,n)=>a+n.x,0)/ns.length,
-              cy:ns.reduce((a,n)=>a+n.y,0)/ns.length};
+  for(const k in GROUPS)delete GROUPS[k];
+  const by={};
+  for(const n of D.nodes){
+    if(!shown(n)||n.comm==null)continue;
+    (by[n.comm]=by[n.comm]||[]).push(n);
+  }
+  for(const c in by){
+    const ns=by[c];
+    if(ns.length<2)continue;                    // a lone token is not a neighbourhood
+    const cx=ns.reduce((a,n)=>a+n.x,0)/ns.length, cy=ns.reduce((a,n)=>a+n.y,0)/ns.length;
+    /* One stray member would stretch the box across the map and swallow its
+       neighbours, so the frame is fitted to the core and outliers are simply
+       left outside it — they still draw, they are just not claimed. */
+    const dist=ns.map(n=>Math.hypot(n.x-cx,n.y-cy));
+    const mean=dist.reduce((a,d)=>a+d,0)/dist.length || 1;
+    const core=ns.filter((n,i)=>dist[i]<=mean*1.75);
+    const fit=core.length>=2?core:ns;
+    const anchor=ns.reduce((a,n)=>n.peak>a.peak?n:a,ns[0]);
+    const tally={}; for(const n of ns)tally[n.chain]=(tally[n.chain]||0)+1;
+    const chains=Object.keys(tally).sort((a,b)=>tally[b]-tally[a]);
+    GROUPS[c]={n:ns.length,label:anchor.sym.slice(0,12),chain:chains[0],
+               mixed:chains.length>1,
+               x0:Math.min(...fit.map(n=>n.x)), x1:Math.max(...fit.map(n=>n.x)),
+               y0:Math.min(...fit.map(n=>n.y)), y1:Math.max(...fit.map(n=>n.y))};
   }
 }
 function drawHulls(){
-  const pad=CONFIG.hullPad*Math.min(1.5,view.k);
-  ctx.save();ctx.lineJoin='round';
-  for(const c in HULLS){
-    const h=HULLS[c], col=cc(c).hot, cx=wx(h.cx), cy=wy(h.cy);
-    /* push each vertex out from the centroid so the boundary clears the bubbles */
-    const pts=h.hull.map(p=>{
-      const x=wx(p[0]),y=wy(p[1]),dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)||1;
-      return [x+dx/d*pad,y+dy/d*pad];});
+  const pad=CONFIG.groupPad*Math.min(1.5,view.k);
+  const arm=CONFIG.groupArm*Math.min(1.5,view.k);      // bracket arm length
+  const fs=clamp(9.5*Math.min(1.3,view.k),9,12);
+  ctx.save();ctx.lineCap='square';
+  ctx.font=`700 ${fs}px "JetBrains Mono",monospace`;
+  for(const c in GROUPS){
+    const g=GROUPS[c], col=cc(g.chain).hot;
+    const x0=wx(g.x0)-pad, x1=wx(g.x1)+pad, y0=wy(g.y0)-pad, y1=wy(g.y1)+pad;
+    if(x1<0||x0>W||y1<0||y0>H)continue;
+    const w=x1-x0, h=y1-y0, a=Math.min(arm,w*0.34,h*0.34);
+
+    ctx.globalAlpha=CONFIG.groupFill;ctx.fillStyle=col;
+    ctx.fillRect(x0,y0,w,h);
+    ctx.globalAlpha=CONFIG.groupLine;ctx.strokeStyle=col;ctx.lineWidth=1.25;
+    ctx.beginPath();                                   // four corner brackets
+    ctx.moveTo(x0,y0+a); ctx.lineTo(x0,y0); ctx.lineTo(x0+a,y0);
+    ctx.moveTo(x1-a,y0); ctx.lineTo(x1,y0); ctx.lineTo(x1,y0+a);
+    ctx.moveTo(x1,y1-a); ctx.lineTo(x1,y1); ctx.lineTo(x1-a,y1);
+    ctx.moveTo(x0+a,y1); ctx.lineTo(x0,y1); ctx.lineTo(x0,y1-a);
+    ctx.stroke();
+    ctx.globalAlpha=CONFIG.groupLine*0.4;              // hairline edges between them
+    ctx.setLineDash([2,7]);
     ctx.beginPath();
-    if(pts.length<3){ctx.arc(cx,cy,pad*1.7,0,7);}
-    else{
-      const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
-      const st=mid(pts[pts.length-1],pts[0]);
-      ctx.moveTo(st[0],st[1]);
-      for(let i=0;i<pts.length;i++){
-        const cur=pts[i],nx=pts[(i+1)%pts.length],m=mid(cur,nx);
-        ctx.quadraticCurveTo(cur[0],cur[1],m[0],m[1]);   // round the corners off
-      }
-      ctx.closePath();
-    }
-    ctx.globalAlpha=CONFIG.hullFill;ctx.fillStyle=col;ctx.fill();
-    ctx.globalAlpha=CONFIG.hullLine;ctx.strokeStyle=col;ctx.lineWidth=1;
-    ctx.setLineDash([3,6]);ctx.stroke();ctx.setLineDash([]);
-    /* Anchor the label on the far side of the cluster from the map centre. The
-       topmost vertex is often the side facing a neighbour, and the label then
-       reads as belonging to the wrong territory. */
-    const mx0=wx(0),my0=wy(0);
-    let ox=cx-mx0, oy=cy-my0, om=Math.hypot(ox,oy)||1;
-    ox/=om; oy/=om;
-    let far=pts[0],fd=-1;
-    for(const q of pts){const d=(q[0]-cx)*ox+(q[1]-cy)*oy;if(d>fd){fd=d;far=q;}}
-    const fs=clamp(10*Math.min(1.3,view.k),9,13);
-    ctx.font=`700 ${fs}px "JetBrains Mono",monospace`;
-    const txt=`${c.toUpperCase()}  ${h.n}`, tw=textW(txt,fs);
-    const align=ox>0.35?'left':ox<-0.35?'right':'center';
-    let lx=far[0]+ox*9, ly=far[1]+oy*9+(oy<0?-4:11);
-    /* keep it inside the area the rail does not cover, or it is clipped away */
-    const left=align==='left'?lx:align==='right'?lx-tw:lx-tw/2;
-    lx+=clamp(left,VIEWL+6,VIEWR-tw-6)-left;
-    ly=clamp(ly,fs+6,H-10);
-    ctx.globalAlpha=.6;ctx.fillStyle=col;ctx.textAlign=align;
+    ctx.moveTo(x0+a,y0);ctx.lineTo(x1-a,y0);
+    ctx.moveTo(x0+a,y1);ctx.lineTo(x1-a,y1);
+    ctx.moveTo(x0,y0+a);ctx.lineTo(x0,y1-a);
+    ctx.moveTo(x1,y0+a);ctx.lineTo(x1,y1-a);
+    ctx.stroke();ctx.setLineDash([]);
+
+    /* label sits on the top rule, left-aligned, in the HUD manner */
+    const txt=`${g.label} ·${g.n}${g.mixed?' ⁑':''}`, tw=textW(txt,fs);
+    const lx=clamp(x0+a+6,VIEWL+6,Math.max(VIEWL+6,VIEWR-tw-6));
+    const ly=clamp(y0-5,fs+4,H-8);
+    ctx.globalAlpha=1;ctx.fillStyle=VOID;
+    ctx.fillRect(lx-4,ly-fs+1,tw+8,fs+3);              // knock the rule out behind it
+    ctx.globalAlpha=.85;ctx.fillStyle=col;ctx.textAlign='left';
     ctx.fillText(txt,lx,ly);
-    const l0=align==='left'?lx:align==='right'?lx-tw:lx-tw/2;
-    LABELS.push([l0-3,ly-fs-2,l0+tw+3,ly+5]);
+    LABELS.push([lx-4,ly-fs-1,lx+tw+4,ly+4]);
   }
   ctx.restore();
 }
+
 /* Edge selection depends only on (time, hover) — cache it between frames. */
 let EDGE_CACHE={t:-1,h:null,list:[]};
 function edgesFor(t){
@@ -202,8 +239,16 @@ function edgesFor(t){
     live.push({e,w});
   }
   live.sort((p,q)=>q.w-p.w);
-  const list = hoverId ? live.filter(r=>r.e.a===hoverId||r.e.b===hoverId)
-                       : live.slice(0,CONFIG.maxEdges);
+  let list = hoverId ? live.filter(r=>r.e.a===hoverId||r.e.b===hoverId)
+                     : live.slice(0,CONFIG.maxEdges);
+  if(!hoverId){
+    /* whatever the cap decided, capital arriving in a newly entered token gets
+       drawn — that is the edge this product exists to surface */
+    const seen=new Set(list.map(r=>r.e));
+    const fresh=live.filter(r=>!seen.has(r.e)&&r.w>=CONFIG.freshMinShared
+                               &&isFreshInflow(r.e,t)).slice(0,CONFIG.freshEdges);
+    if(fresh.length)list=list.concat(fresh);
+  }
   EDGE_CACHE={t,h:hoverId,list};
   return list;
 }
@@ -244,12 +289,14 @@ function draw(t){
     /* While focused, direction beats chain identity: green feeds IN, red feeds OUT.
        The glow has to follow the same colour or it washes the coding out. */
     let g, glowCol=cc(b.chain).hot;
+    const freshIn=isFreshInflow(e,t);
     if(hoverId===e.b){glowCol=CSSV('--in'); g=glowCol;}
     else if(hoverId===e.a){glowCol=CSSV('--out'); g=glowCol;}
+    else if(freshIn){glowCol=ACCENT; g=ACCENT;}   // reserved colour, reserved meaning
     else{const lg=ctx.createLinearGradient(x1,y1,x2,y2);
       lg.addColorStop(0,cc(a.chain).hot);lg.addColorStop(1,cc(b.chain).hot);g=lg;}
-    ctx.globalAlpha=alpha;ctx.strokeStyle=g;
-    ctx.lineWidth=Math.min(3.2,(0.5+w*0.24))*Math.min(1.5,k)*(hoverId?1.25:1);
+    ctx.globalAlpha=freshIn?Math.min(0.9,alpha*1.7+0.18):alpha;ctx.strokeStyle=g;
+    ctx.lineWidth=Math.min(3.2,(0.5+w*0.24))*Math.min(1.5,k)*(hoverId?1.25:1)*(freshIn?1.5:1);
     ctx.shadowBlur=blur(11*Math.min(1.4,k));ctx.shadowColor=glowCol;
     ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(mx,my,x2,y2);ctx.stroke();
     const nP=Math.min(4,1+Math.floor(w/3));
@@ -308,6 +355,32 @@ function draw(t){
       ctx.beginPath();ctx.arc(x,y,C,0,7);ctx.fill();
       ctx.globalAlpha=.88*A;ctx.beginPath();ctx.arc(x,y,C*.42,0,7);ctx.fill();
     }
+    /* Newly entered tokens carry a HUD bracket and their age. One being fed by
+       an established name is the signal itself, so it also gets the reserved
+       accent and a tag — a small position can still be the loudest thing here. */
+    if(isNew(n,t)&&born>0.5){
+      const fed=freshInto(n.id,t).length>0;
+      const mr=Math.max(R,7)+7, br=mr*0.52;
+      ctx.globalAlpha=(fed?0.95:0.45)*dim(n.id);
+      ctx.strokeStyle=fed?ACCENT:col;ctx.lineWidth=fed?1.5:1;
+      ctx.shadowBlur=fed?blur(9):0;ctx.shadowColor=ACCENT;
+      ctx.beginPath();
+      ctx.moveTo(x-mr,y-mr+br);ctx.lineTo(x-mr,y-mr);ctx.lineTo(x-mr+br,y-mr);
+      ctx.moveTo(x+mr-br,y-mr);ctx.lineTo(x+mr,y-mr);ctx.lineTo(x+mr,y-mr+br);
+      ctx.moveTo(x+mr,y+mr-br);ctx.lineTo(x+mr,y+mr);ctx.lineTo(x+mr-br,y+mr);
+      ctx.moveTo(x-mr+br,y+mr);ctx.lineTo(x-mr,y+mr);ctx.lineTo(x-mr,y+mr-br);
+      ctx.stroke();ctx.shadowBlur=0;
+      if(fed&&R>=5){
+        const tag=`NEW ${Math.max(0,Math.round(ageAt(n,t)))}D`;
+        ctx.font=`700 9px "JetBrains Mono",monospace`;
+        const tw=textW(tag,9);
+        ctx.globalAlpha=dim(n.id);ctx.fillStyle=ACCENT;
+        ctx.fillRect(x-tw/2-4,y-mr-14,tw+8,11);
+        ctx.fillStyle=VOID;ctx.textAlign='center';
+        ctx.fillText(tag,x,y-mr-5.5);
+        ctx.font=`600 ${labelFs}px "Chakra Petch",sans-serif`;   // restore label font
+      }
+    }
     if(hot||n.rank<budget||R>=labelMinPx){
       const fs=labelFs;
       const txt=n.sym.slice(0,14);
@@ -361,8 +434,11 @@ const credsEl=document.getElementById('creds'), narrEl=document.getElementById('
    so they cannot drift from research/claims.json. */
 document.getElementById('eyebrow').textContent=
   `Nansen · ${D.stats.cohort.toLocaleString()} repeat winners · ${D.chains.length} chains`;
-document.getElementById('tag').textContent=
-  `${D.claims.oot.value}% of the following month's winners were already on this map`;
+/* The headline sentence lives with the number in claims.json, so its scope cannot
+   drift from what was measured — an unscoped "78% of winners" would read as a
+   cross-chain result, which is not what the run says. */
+document.getElementById('tag').textContent = D.claims.oot.headline ||
+  `${D.claims.oot.value}% of the next month's winners were already on this map`;
 credsEl.innerHTML=Object.keys(D.claims||{}).map(k=>{
   const c=D.claims[k];
   return `<div class="c" title="${c.scope.replace(/"/g,'&quot;')}${c.detail?' ('+c.detail+')':''}">`+
@@ -567,7 +643,16 @@ function setPlay(v){
   dateEl.classList.toggle('paused',!v&&everPlayed);
 }
 playBtn.addEventListener('click',()=>setPlay(!playing));
+/* Single-key shortcuts must not fire while the user is typing: searching for
+   HOOKR would otherwise hide the panel on the H and reframe the map on the R.
+   Escape leaves the field so the shortcuts come back without reaching for the mouse. */
+const typing=el=>!!el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable);
 addEventListener('keydown',e=>{
+  if(typing(e.target)){
+    if(e.key==='Escape'){e.target.blur();}
+    return;
+  }
+  if(e.metaKey||e.ctrlKey||e.altKey)return;      // leave browser shortcuts alone
   if(e.key===' '){setPlay(!playing);e.preventDefault();}
   if(e.key==='ArrowRight'){setPlay(false);targetT=Math.min(LAST,Math.round(targetT)+1);}
   if(e.key==='ArrowLeft'){setPlay(false);targetT=Math.max(0,Math.round(targetT)-1);}
@@ -594,8 +679,21 @@ rToggle.addEventListener('click',toggleRail);
    finding, so it belongs where the colours are explained. */
 const legend=document.getElementById('legend');
 const chainCount={}; D.nodes.forEach(n=>chainCount[n.chain]=(chainCount[n.chain]||0)+1);
+/* Repeat-winner rate per chain is the ceiling on whether a cohort can work there at
+   all, and it is the finding that explains why one territory carries the map. It
+   rides the chip rather than a panel of its own — the colour and its caveat in the
+   same place, costing no screen. */
+const PERSIST={}; (D.persistence||[]).forEach(r=>PERSIST[r.chain]=r);
+const chainTitle=c=>{
+  const r=PERSIST[c]; if(!r)return `${c}: ${chainCount[c]||0} tokens`;
+  return `${c} — ${r.rate}% repeat-winner rate (${r.repeat} of ${r.traders.toLocaleString()} `+
+         `winning traders won more than once)`+
+         (r.covtot?`. Out-of-time coverage ${r.cov}/${r.covtot}.`:'.')+
+         (r.rate<4?' Below the ~4% floor, a cohort has no headroom here.':'');
+};
 legend.innerHTML=D.chains.map(c=>
-  `<button type="button" class="row on" data-c="${c}" aria-pressed="true">`+
+  `<button type="button" class="row on" data-c="${c}" aria-pressed="true" `+
+  `title="${chainTitle(c).replace(/"/g,'&quot;')}">`+
   `<i style="background:${cc(c).hot};color:${cc(c).hot}"></i>`+
   `<span>${c}</span><b style="font-weight:400;opacity:.6">${chainCount[c]||0}</b></button>`).join('');
 legend.querySelectorAll('.row').forEach(r=>r.addEventListener('click',()=>{
@@ -629,11 +727,12 @@ document.getElementById('ticks').innerHTML=[0,.25,.5,.75,1]
 const board=document.getElementById('board'), ROWS={};
 const panes={rank:document.getElementById('p-rank'),flow:document.getElementById('p-flow'),
              move:document.getElementById('p-move'),find:document.getElementById('p-find'),
-             persist:document.getElementById('p-persist')};
+             fresh:document.getElementById('p-fresh')};
+
 const NOTES={rank:'Cohort capital, reordering as you scrub.',
              flow:'Shared wallets reducing one token while increasing another.',
              move:'7-day change in cohort capital at this frame.',
-             persist:'Repeat-winner rate per chain — the ceiling on this whole method.',
+             fresh:'Tokens the cohort has just entered, and the established names funding them.',
              find:'Find a token and see what it feeds, and what feeds it.'};
 let pane='rank', lastPaint=0;
 function showPane(p){
@@ -718,31 +817,21 @@ function paintMove(t){
   panes.move.querySelectorAll('.mv[data-id]').forEach(el=>
     el.addEventListener('click',()=>focusToken(el.dataset.id)));
 }
-/* ---------- persistence: the ceiling on whether a cohort can work at all ----------
-   Static for a given build, so it renders once rather than on every rail repaint. */
-const FLOOR=4.0;                                  // repeat-winner rate below which coverage collapsed
-let persistPainted=false;
-function paintPersist(){
-  if(persistPainted)return; persistPainted=true;
-  const rows=(D.persistence||[]).slice().sort((a,b)=>b.rate-a.rate);
-  if(!rows.length){
-    panes.persist.innerHTML='<div class="foot">No persistence data in this build.</div>';
-    return;
-  }
-  const top=Math.max(FLOOR*1.25,...rows.map(r=>r.rate));
-  panes.persist.innerHTML=rows.map(r=>{
-    const col=cc(r.chain).hot, live=r.rate>=FLOOR;
-    return `<div class="pz${live?'':' dead'}">
-      <div class="t"><span>${r.chain}</span><b style="color:${live?col:'var(--faint)'}">${r.rate.toFixed(1)}%</b></div>
-      <div class="bar"><i style="width:${Math.max(1.5,r.rate/top*100)}%;background:${col};opacity:${live?1:.4}"></i>
-        <u style="left:${FLOOR/top*100}%"></u></div>
-      <div class="m"><span><b>${r.traders.toLocaleString()}</b> traders · <b>${r.repeat}</b> repeat</span>
-        <span>${r.covtot?`covered <b>${r.cov}/${r.covtot}</b>`:'—'}</span></div>
-    </div>`;}).join('')+
-    `<div class="foot">Share of a chain's winning traders who won <b>more than once</b>.
-     The line marks <b>${FLOOR}%</b> — below it, every chain we tested covered
-     <b>none</b> of the following month's winners. Solana, the busiest memecoin chain,
-     has the <b>least</b> persistent winners: one repeat winner in 499.</div>`;
+function paintFresh(t){
+  const rows=freshBoard(t).slice(0,14);
+  panes.fresh.innerHTML = rows.length ? rows.map(r=>{
+    const feeders=r.src.slice(0,3).map(f=>f.s.sym.slice(0,10)).join(', ');
+    return `<div class="fr" data-id="${r.n.id}">
+      <div class="t"><span class="dt" style="background:${cc(r.n.chain).hot};width:7px;height:7px;
+        border-radius:50%"></span><span class="sy">${r.n.sym.slice(0,14)}</span>
+        <span class="age">NEW ${r.age}D</span></div>
+      <div class="m"><span>fed by <b class="src">${feeders}</b></span>
+        <span><b>${Math.round(r.src.reduce((a,f)=>a+f.w,0))}w</b> · ${fmt(r.usd)}</span></div>
+    </div>`;}).join('')
+    : '<div class="fr" style="cursor:default"><div class="m">'+
+      'No established name is feeding a new position in this window.</div></div>';
+  panes.fresh.querySelectorAll('.fr[data-id]').forEach(el=>
+    el.addEventListener('click',()=>focusToken(el.dataset.id)));
 }
 
 /* ---------- (1) search ---------- */
@@ -784,7 +873,7 @@ function paintRail(t){
   if(pane==='rank')paintRank(t);
   else if(pane==='flow')paintFlow(t);
   else if(pane==='move')paintMove(t);
-  else if(pane==='persist')paintPersist();
+  else if(pane==='fresh')paintFresh(t);
   else paintFind(t);
 }
 

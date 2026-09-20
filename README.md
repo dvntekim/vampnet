@@ -1,4 +1,4 @@
-# Cavitation
+# Vampnet
 
 **A map of where proven onchain capital moves next, built entirely on the Nansen API.**
 
@@ -6,14 +6,14 @@ Scrub 141 days and watch capital from 741 wallets — each of which won **four o
 separate memecoins** — rotate between 80 tokens across four chains. Ring = market cap,
 glowing core = cohort capital, edges = co-rotation. Only what is moving lights up.
 
-**Live: https://dvnykim.github.io/cavitation/**
+**Live: https://dvnykim.github.io/vampnet/**
 
 ---
 
 ## Run it
 
 ```bash
-git clone https://github.com/dvnykim/cavitation && cd cavitation
+git clone https://github.com/dvnykim/vampnet && cd vampnet
 read -rs -p "Nansen API key: " K && printf 'NANSEN_API_KEY=%s\n' "$K" > .env && chmod 600 .env
 
 python3 make.py --demo        # live build from the API
@@ -61,19 +61,26 @@ then tested against September's winners.
 
 | | |
 |---|---|
-| **75%** | of unseen September winners were already held by the frozen cohort (6 of 8, Robinhood chain) |
+| **78%** | of unseen September winners were already held by the frozen cohort (7 of 9, Robinhood chain) |
+| **42%** | the same run counted naively across all four chains (10 of 24) — coverage tracks repeat-winner rate |
 | **23×** | precision lift — 28.6% of high-conviction holdings became 200%+ winners vs a 1.24% base rate |
 | **~16 days** | median lead from first cohort entry to price peak |
 
 Every one of those numbers lives in [`research/claims.json`](research/claims.json) with the
 run that produced it, and `make.py` reads that file rather than hardcoding anything — so the
 site cannot drift from the research. [`research/NUMBERS.md`](research/NUMBERS.md) is the
-readable version, including the one claim we withdrew for lack of an artifact.
+readable version, including the claim we withdrew and then superseded by measuring it.
 
-**The coverage figure and the map are measured on different cohorts** (125 wallets at 2+ on
-Robinhood vs the 741 at 4+ that the map draws), because that is the configuration the
-out-of-time test was run on. Reconciling them on one run is a single command, documented in
-[NUMBERS.md](research/NUMBERS.md#two-configurations-and-why-they-differ).
+**Both figures come from one frozen-cohort run at the map's own 4+ threshold**
+(`research/out_of_time_2026-08-31.json`). The cohort was built only from winners that
+resolved before 31 August and tested on the 24 that first appeared afterwards — 21 tokens
+already winning before the freeze were excluded, so nothing the cohort could have learned
+from the test period reaches it.
+
+We lead with the Robinhood number because the product's central finding is that coverage is
+ecosystem-bound, and we print the naive number beside it so the 78% is never read as a
+cross-chain result. Per chain: robinhood 7/9, base 2/3, bnb 1/6, **solana 0/6** — which is
+what an 0.2% repeat-winner rate predicts.
 
 **What it does not claim: that flow magnitude predicts returns.** We tested that four ways
 — token-level correlation, five alternative signal formulations, a cross-chain recurrence
@@ -119,7 +126,10 @@ scripts/
   build_bubbles.py     cohort → nodes, edges, activity, clustered layout
   restamp.py           re-solve layout / refresh claims, no API key, 0 credits
   verify_build.py      the publish gate — both CI workflows run it
-  measure_perf.js      paste into DevTools to measure frame time on real hardware
+  measure_perf.js      paste into DevTools: draw cost and frame interval, kept apart
+research/scripts/
+  out_of_time.py       frozen-cohort coverage test; --write-claims updates claims.json
+  check_claims.py      fails if a displayed number drifts from its run artifact
 docs/index.html      the published site (generated)
 docs/og.png          social card (regenerate after a visual change)
 research/claims.json every displayed number, with the run that produced it
@@ -130,16 +140,25 @@ research/            how the claims were validated — see research/README.md
 constant sits in three blocks at the top of the generated HTML — `THEME`, `MOTION`,
 `CONFIG` — so the design can be rewritten without touching the pipeline.
 
-**Position carries meaning.** Nodes never move between frames, which is what keeps it at
-60fps. Placement is solved once at build time by a four-force layout: co-rotation springs
-pull tokens that actually trade into each other adjacent, radius-aware repulsion stops the
-big caps colliding, a weak per-chain anchor forms visible territories, and a radial time
-bias keeps early entries toward each cluster's core and new ones at its rim.
+**Position carries meaning, and nothing about it is imposed.** Nodes never move between
+frames, which is what keeps it at 60fps. Placement is solved once at build time from the
+rotations alone — no chain grid, no time axis.
 
-The chain anchor is deliberately weak: a token rotating hard with another chain drifts
-toward it, and that drift is information a hard boundary would have hidden. Clustering cut
-median edge length by 41% and p90 by 57% against the previous polar layout — a rotation is
-now a short link between neighbours instead of an arc across empty canvas.
+Seating chains around a ring was tried and was wrong for this data: **92% of flow is inside
+a chain and 87% is inside Robinhood alone**, so a ring spent a quarter of the canvas on
+Solana — six tokens, 0.2% of flow and structurally zero cross-chain edges, because an EVM
+keypair cannot hold a Solana token — while compressing everything worth looking at into a
+blob.
+
+So the map is built the other way round. Communities are detected on the rotation graph
+(Louvain; label propagation collapses Robinhood's dense subgraph into one useless blob of
+74). Each neighbourhood is solved on its own, then packed as a disc, then its members take
+that slot — separation is a property of the construction rather than something a force has
+to win. A token that rotates with another neighbourhood drifts toward it, bounded, because
+that bridge is worth seeing.
+
+Chains then separate themselves, because their edges do. Several neighbourhoods are **not**
+chain-pure, which is the part a chain-shaped layout could never have shown.
 
 ---
 
@@ -152,9 +171,21 @@ now a short link between neighbours instead of an arc across empty canvas.
 | `R` · `H` · `/` | reframe · hide panel · search |
 | hover | market cap, cohort capital, wallets, **Fed by / Feeding** |
 
+Frames on the map are rotation neighbourhoods, labelled by their biggest token; `⁑` marks
+one that spans more than one chain.
+
+**Fresh inflow.** A token the cohort entered days ago, being fed by a name it has held for
+months, is the most actionable thing here — and it is almost always small in absolute
+terms, so a top-N edge cap is exactly what throws it away: **861 of the 1,062 such
+rotations in this window fall below that cap**. So they are drawn regardless of it, in the
+reserved accent, into a bracketed node tagged with its age. The feeder has to be a top-20
+name, or the signal is just churn. The **Fresh** panel ranks them by how much standing the
+feeders have, so `PONS → RAM` on RAM's first day outranks a larger flow between two
+unknowns.
+
 Right rail: **Rank** · **Flows** (what is draining into what) · **Movers** (7-day gainers
-and bleeders) · **Persist** (repeat-winner rate per chain, and the ~4% floor below which a
-cohort cannot work) · **Search**.
+and bleeders) · **Search**. Repeat-winner rate per chain — the ceiling on whether a cohort
+can work there — is on each chain chip in the masthead.
 
 Above the map, a one-line narrative is regenerated from the payload every frame — never
 written by hand. Bottom left, the three validated numbers are on screen permanently, each
@@ -168,8 +199,8 @@ carrying its measurement scope on hover.
   keypair cannot hold a Solana token, and the method requires the same wallet on both
   sides. Solana ↔ Solana edges do appear, but the Solana cohort is 33 wallets because
   Solana's repeat-winner rate is 0.2%.
-- **Coverage is ecosystem-bound.** 75% on Robinhood; near zero on chains below ~4%
-  repeat-winner rate. The Persistence panel reports this per chain rather than hiding it.
+- **Coverage is ecosystem-bound.** 78% on Robinhood; near zero on chains below ~4%
+  repeat-winner rate. Each chain chip carries its own rate rather than hiding it.
 - **Co-rotation is not causation.** Edges are labelled "Fed by / Feeding" on shared-wallet
   evidence. Direct A→B attribution was tested and is not reliable.
 - One 141-day window, one market regime.

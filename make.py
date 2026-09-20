@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Cavitation — end-to-end build.
+Vampnet — end-to-end build.
 
     python3 make.py --demo     small live run, ~5 min, ~300 credits   (start here)
     python3 make.py --full     production refresh, ~2 h, ~6,000 credits
@@ -193,7 +193,8 @@ def stamp(p, ncoh, pool=0):
     C = claims()
     p["claims"] = {k: {"value": C[k]["value"], "unit": C[k]["unit"],
                        "label": C[k]["label"], "detail": C[k].get("detail", ""),
-                       "scope": C[k]["scope"], "verified": C[k]["verified"]}
+                       "scope": C[k]["scope"], "verified": C[k]["verified"],
+                       "headline": C[k].get("headline", "")}
                    for k in ("oot", "lift", "lead")}
     p["stats"] = {"cohort": ncoh, "pool": pool, "tokens": len(p["nodes"]),
                   "built": dt.date.today().isoformat(),
@@ -360,7 +361,7 @@ if __name__=="__main__":
         cfg=dict(PRESETS["daily"])
         if a.cap: cfg["cap"]=a.cap
         B=Budget(cfg["cap"])
-        print(f"Cavitation — DAILY refresh   credit cap {cfg['cap']}\n")
+        print(f"Vampnet — DAILY refresh   credit cap {cfg['cap']}\n")
         step_daily(cfg,B)
         print(f"\nDone in {time.time()-t0:.0f}s · {B.used} credits used")
     elif a.build:
@@ -371,7 +372,7 @@ if __name__=="__main__":
         cfg=dict(PRESETS["demo" if a.demo else "full"])
         if a.cap: cfg["cap"]=a.cap
         B=Budget(cfg["cap"])
-        print(f"Cavitation — {'DEMO' if a.demo else 'FULL'} build   "
+        print(f"Vampnet — {'DEMO' if a.demo else 'FULL'} build   "
               f"window {cfg['from']} → {cfg['to']}   credit cap {cfg['cap']}\n")
         winners=step1_winners(cfg,B)
         ev,sol=step2_cohort(cfg,winners,B)

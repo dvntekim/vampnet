@@ -1,15 +1,15 @@
 {
   "_comment": "SINGLE SOURCE OF TRUTH for every headline number Cavitation displays or prints.",
   "_rule": "No number appears in README.md, SUBMISSION.md or on the rendered site unless it is in this file with a provenance entry. make.py reads this to build the payload's stats block; research/NUMBERS.md is the human-readable view of it.",
-  "_regenerate": "python3 research/scripts/out_of_time.py --freeze 2026-08-31 --recurrence 2 --chains robinhood",
+  "_regenerate": "python3 research/scripts/out_of_time.py --freeze 2026-08-31 --recurrence 4 --chains robinhood,bnb,base,solana --cap 6000 --write-claims",
   "cohort": {
-    "value": 125,
+    "value": 15,
     "unit": "wallets",
     "label": "cohort",
-    "scope": "wallets in the top-100 PnL of >= 2 separate Robinhood-chain winners, frozen 2026-08-31",
-    "source": "research/VALIDATED.md#production-configuration",
+    "scope": "wallets clearing 4+ of the 75 winning tokens resolved in the 30 days to 2026-08-31, from a 5,399-trader pool. Small because one month is a short window to win four separate tokens in; the map's 741 is the same threshold over 141 days.",
+    "source": "research/out_of_time_2026-08-31.json",
     "script": "research/scripts/out_of_time.py",
-    "verified": "2026-09-18"
+    "verified": "2026-09-20"
   },
   "map_cohort": {
     "value": 741,
@@ -21,14 +21,15 @@
     "verified": "2026-09-20"
   },
   "oot": {
-    "value": 75,
+    "value": 78,
     "unit": "%",
     "label": "out-of-time coverage",
-    "detail": "6 of 8",
-    "scope": "Cohort frozen 2026-08-31 with zero September information, tested against the 8 Robinhood-chain winners that emerged 1-18 September. Robinhood is the only chain above the ~4% repeat-winner floor; naive cross-chain coverage over the same test is 20%.",
-    "source": "research/VALIDATED.md#production-configuration",
-    "script": "research/scripts/out_of_time.py",
-    "verified": "2026-09-18"
+    "detail": "7 of 9",
+    "scope": "Cohort frozen 2026-08-31 with zero post-freeze information and tested against the 9 Robinhood-chain winners that first emerged 1-20 September. Same 4+ recurrence threshold the map is built on; the frozen cohort is 15 wallets, drawn from a 5,399-trader pool over a 30-day training window. Naive across all four chains the same run scores 42% (10 of 24): base 2/3, bnb 1/6, solana 0/6 \u2014 coverage tracks the repeat-winner rate, which is the product's central finding.",
+    "source": "research/out_of_time_2026-08-31.json",
+    "script": "research/scripts/out_of_time.py --freeze 2026-08-31 --recurrence 4 --chains robinhood,bnb,base,solana",
+    "verified": "2026-09-20",
+    "headline": "78% of the next month's Robinhood-chain winners were already on this map"
   },
   "lift": {
     "value": 23,
@@ -50,15 +51,14 @@
     "script": "research/scripts/coverage.py",
     "verified": "2026-09-18"
   },
-  "_pending": {
-    "_comment": "Claims asserted in an earlier draft of README.md / SUBMISSION.md that no artifact in this repository reproduces. They are NOT displayed anywhere until out_of_time.py measures them. Run the command in _regenerate with --recurrence 4 over the 141-day window to confirm or correct.",
-    "oot_full_run": {
-      "asserted": 91,
-      "unit": "%",
-      "detail": "10 of 11",
-      "asserted_scope": "741-wallet cohort, 4+ winning tokens, 141-day window",
-      "status": "UNVERIFIED - no script, run log or table in research/ produces this value",
-      "conflicts_with": "research/VALIDATED.md reports 20% naive / 60% Robinhood-only / 75% production over the 48-day window, and explicitly recommends the 2+ threshold because >=4 shrank coverage to 38%"
-    }
+  "naive_oot": {
+    "value": 42,
+    "unit": "%",
+    "label": "naive coverage",
+    "detail": "10 of 24",
+    "scope": "The same frozen-cohort run counted across all four chains without scoping to the ecosystem where repeat winners exist. Stated so the 78% is never read as a cross-chain result.",
+    "source": "research/out_of_time_2026-08-31.json",
+    "script": "research/scripts/out_of_time.py",
+    "verified": "2026-09-20"
   }
 }

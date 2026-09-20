@@ -1,5 +1,5 @@
 import json
-SITE  = "https://dvnykim.github.io/cavitation/"
+SITE  = "https://dvnykim.github.io/vampnet/"
 BLURB = ("Where proven onchain capital moves next. 741 wallets that each won four or more "
          "separate memecoins, mapped across 80 tokens and 141 days — built entirely on the "
          "Nansen API.")
@@ -9,23 +9,23 @@ HEAD = r'''<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Cavitation — the onchain attention map</title>
+<title>Vampnet — the onchain attention map</title>
 <meta name="description" content="__BLURB__">
-<meta name="author" content="Cavitation">
+<meta name="author" content="Vampnet">
 <link rel="canonical" href="__SITE__">
 
 <!-- Social cards. The product is visual, so the preview image is the pitch. -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Cavitation">
+<meta property="og:site_name" content="Vampnet">
 <meta property="og:url" content="__SITE__">
-<meta property="og:title" content="Cavitation — the onchain attention map">
+<meta property="og:title" content="Vampnet — the onchain attention map">
 <meta property="og:description" content="__BLURB__">
 <meta property="og:image" content="__SITE__og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A dark network map of memecoin tokens clustered by chain, sized by market cap, with capital rotations drawn as glowing links between them.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Cavitation — the onchain attention map">
+<meta name="twitter:title" content="Vampnet — the onchain attention map">
 <meta name="twitter:description" content="__BLURB__">
 <meta name="twitter:image" content="__SITE__og.png">
 <meta name="theme-color" content="#0A0C11">
@@ -49,7 +49,17 @@ HEAD = r'''<!doctype html>
   --out:#FF4D6A;                       /* outbound / feeding  */
   --hover:#161C27; --field:#0C0F16; --tab-on:#151B27;
   --hair:rgba(30,36,48,.75);           /* list separators */
+  /* HUD chrome: panels are cut, not rounded, and framed by corner marks rather
+     than full borders. Structure borrowed, palette unchanged. */
+  --notch:11px;                        /* corner cut on panels */
+  --notch-sm:6px;                      /* corner cut on controls */
+  --bracket:rgba(61,214,208,.30);      /* viewport corner marks */
 }
+/* one cut corner, opposite corners, used on every panel and control */
+.cut{clip-path:polygon(var(--notch) 0,100% 0,100% calc(100% - var(--notch)),
+     calc(100% - var(--notch)) 100%,0 100%,0 var(--notch))}
+.cut-sm{clip-path:polygon(var(--notch-sm) 0,100% 0,100% calc(100% - var(--notch-sm)),
+     calc(100% - var(--notch-sm)) 100%,0 100%,0 var(--notch-sm))}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden;background:var(--void)}
 body{font-family:"Chakra Petch",system-ui,sans-serif;color:var(--ink);
@@ -61,28 +71,46 @@ canvas.drag{cursor:grabbing}
    filter rather than as an instrument. */
 #fx{position:fixed;inset:0;pointer-events:none;z-index:4;
   background:radial-gradient(ellipse at 50% 45%,transparent 62%,rgba(6,8,12,.55) 100%)}
+/* Corner marks on the viewport itself. Four short rules state the frame without
+   boxing the map in, which is the whole trick of a HUD: imply the edge. */
+#hud{position:fixed;inset:10px;pointer-events:none;z-index:5}
+#hud i{position:absolute;width:26px;height:26px;border:1px solid var(--bracket)}
+#hud i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+#hud i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+#hud i:nth-child(3){bottom:0;right:0;border-left:0;border-top:0}
+#hud i:nth-child(4){bottom:0;left:0;border-right:0;border-top:0}
+/* a thin tick rule down the left gutter — reads as an instrument scale */
+#hud u{position:absolute;left:0;top:64px;bottom:64px;width:7px;
+  background:repeating-linear-gradient(180deg,var(--bracket) 0 1px,transparent 1px 13px);
+  opacity:.5}
 .mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
 
 /* ---- overlays ---- */
 .ov{position:fixed;z-index:6}
 #brand{top:18px;left:20px}
 #brand .eyebrow{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.3em;
-  text-transform:uppercase;color:var(--cyan);opacity:.8}
+  text-transform:uppercase;color:var(--cyan);opacity:.8;display:flex;align-items:center;gap:7px}
+#brand .eyebrow::before{content:"[";color:var(--line-hot);font-size:13px;line-height:1}
+#brand .eyebrow::after{content:"]";color:var(--line-hot);font-size:13px;line-height:1}
 /* No chromatic aberration on the wordmark — at a glance it read as a rendering
    fault rather than a choice. The accent letterform carries the identity instead. */
 #brand h1{font-size:38px;font-weight:700;letter-spacing:.012em;margin:1px 0 0;line-height:1;
   color:var(--ink)}
 #brand h1 .d{color:var(--magenta)}
 #brand .tag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.2em;
-  text-transform:uppercase;color:var(--faint);margin-top:5px}
-#brand .date{font-family:"JetBrains Mono",monospace;font-size:19px;margin-top:7px;color:var(--ink)}
+  text-transform:uppercase;color:var(--muted);margin-top:6px;padding:4px 9px;
+  border-left:2px solid var(--magenta);background:linear-gradient(90deg,
+  rgba(255,77,106,.10),transparent 70%);max-width:330px;line-height:1.7}
+#brand .date{font-family:"JetBrains Mono",monospace;font-size:19px;margin-top:9px;color:var(--ink);
+  display:inline-flex;align-items:center;gap:9px}
+#brand .date::before{content:"";width:16px;height:1px;background:var(--line-hot)}
 /* Chain key + filter. Lives inside #brand so it is never occluded by the rail and
    survives the panel being hidden — it is the only key to what the colours mean. */
 #legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;max-width:320px}
 #legend .row{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
   font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--muted);background:var(--panel);
-  border:1px solid var(--line);padding:4px 8px;border-radius:2px;transition:.15s}
+  border:1px solid var(--line);padding:4px 8px;transition:.15s;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
 #legend .row:hover{border-color:var(--line-hot);color:var(--ink)}
 #legend .row.off{opacity:.38}
 #legend .row.off i{background:transparent!important;box-shadow:none!important}
@@ -99,7 +127,7 @@ canvas.drag{cursor:grabbing}
 
 /* ---- credibility strip: what the map is worth, stated permanently ---- */
 #creds{bottom:44px;left:20px;display:flex;gap:20px;align-items:flex-end}
-#creds .c{display:flex;flex-direction:column;gap:1px;cursor:help}
+#creds .c{display:flex;flex-direction:column;gap:2px;cursor:help;padding-left:9px;border-left:1px solid var(--line-hot)}
 #creds .v{font-family:"JetBrains Mono",monospace;font-size:19px;color:var(--accent);
   line-height:1;font-variant-numeric:tabular-nums}
 #creds .k{font-family:"JetBrains Mono",monospace;font-size:8px;letter-spacing:.16em;
@@ -113,7 +141,15 @@ canvas.drag{cursor:grabbing}
 /* ---- right rail ---- */
 #rail{top:0;right:0;bottom:0;width:302px;background:var(--panel);backdrop-filter:blur(9px);
   border-left:1px solid var(--line);padding:70px 0 118px;display:flex;flex-direction:column;
-  transition:transform .32s cubic-bezier(.4,0,.2,1)}
+  transition:transform .32s cubic-bezier(.4,0,.2,1);
+  clip-path:polygon(22px 0,100% 0,100% 100%,0 100%,0 22px)}
+/* device stamp in the rail's head gutter — the panel has 70px of clear space
+   above the tabs, so it costs nothing and names the surface */
+#rail::before{content:"ROTATION FEED";position:absolute;top:28px;left:16px;
+  font-family:"JetBrains Mono",monospace;font-size:8.5px;letter-spacing:.34em;
+  color:var(--faint);pointer-events:none}
+#rail::after{content:"";position:absolute;top:46px;left:16px;right:16px;height:1px;
+  background:linear-gradient(90deg,var(--line-hot),transparent);pointer-events:none}
 #rail.hidden{transform:translateX(302px)}
 #rail h2{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.22em;
   text-transform:uppercase;color:var(--cyan);margin:0 0 3px;padding:0 16px;font-weight:400}
@@ -145,23 +181,20 @@ canvas.drag{cursor:grabbing}
 .mv .sy{flex:1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mv .dl{flex:none}
 .up{color:var(--in)} .dn{color:var(--out)}
-/* ---- persistence: repeat-winner rate per chain ----
-   The bar is the whole argument — recurrence is the ceiling on whether a cohort
-   strategy can work at all, so the ~4% floor is drawn as a line you can see
-   chains fall below. */
-.pz{padding:9px 14px;border-bottom:1px solid var(--hair);
-  font-family:"JetBrains Mono",monospace;font-size:11px}
-.pz .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.pz .t span{color:var(--ink);letter-spacing:.1em;text-transform:uppercase;font-size:10px}
-.pz .t b{font-weight:700;font-size:13px}
-.pz .bar{position:relative;height:7px;background:var(--field);margin:6px 0 5px;overflow:hidden}
-.pz .bar i{position:absolute;inset:0 auto 0 0;display:block}
-.pz .bar u{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--faint)}
-.pz .m{display:flex;justify-content:space-between;color:var(--faint);font-size:9.5px}
-.pz .m b{color:var(--muted);font-weight:400}
-.pz.dead .t span,.pz.dead .m b{color:var(--faint)}
-#p-persist .foot{padding:11px 14px;color:var(--muted);font-size:11px;line-height:1.5}
-#p-persist .foot b{color:var(--ink);font-weight:400}
+/* ---- fresh inflow: new tokens taking capital from established names ---- */
+.fr{padding:8px 14px;border-bottom:1px solid var(--hair);font-family:"JetBrains Mono",monospace;
+  font-size:11px;cursor:pointer}
+.fr:hover{background:var(--hover)}
+.fr .t{display:flex;align-items:center;gap:7px}
+.fr .t .sy{color:var(--accent);font-weight:700;flex:1;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.fr .age{font-size:9px;letter-spacing:.1em;color:var(--void);background:var(--accent);
+  padding:1px 5px;flex:none;
+  clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.fr .m{display:flex;justify-content:space-between;gap:8px;color:var(--faint);
+  margin-top:3px;font-size:10px}
+.fr .m b{color:var(--muted);font-weight:400}
+.fr .src{color:var(--in)}
 #sres{padding:0 0 10px}
 #sres .det{padding:10px 14px;font-family:"JetBrains Mono",monospace;font-size:11px}
 #sres .det .h{font-size:14px;color:var(--accent);font-weight:700}
@@ -173,7 +206,7 @@ canvas.drag{cursor:grabbing}
 #sres .hit{padding:7px 14px;cursor:pointer;color:var(--muted);border-bottom:1px solid var(--hair);
   font-family:"JetBrains Mono",monospace;font-size:11.5px}
 #sres .hit:hover{background:var(--hover);color:var(--ink)}
-#speed{background:transparent;border:1px solid var(--line-hot);color:var(--muted);
+#speed{background:transparent;border:1px solid var(--line-hot);clip-path:polygon(var(--notch-sm) 0,100% 0,100% calc(100% - var(--notch-sm)),calc(100% - var(--notch-sm)) 100%,0 100%,0 var(--notch-sm));color:var(--muted);
   font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;padding:7px 9px;
   cursor:pointer;flex:none;transition:.15s;min-width:42px}
 #speed:hover{background:var(--line);color:var(--cyan)}
@@ -190,7 +223,9 @@ canvas.drag{cursor:grabbing}
 .rw .ar{width:12px;font-size:9px;flex:none;text-align:center}
 .rw.hot .sy{color:var(--accent);text-shadow:0 0 10px rgba(234,251,255,.5)}
 #railToggle{position:fixed;z-index:7;top:18px;right:318px;background:var(--panel-solid);
-  border:1px solid var(--line-hot);color:var(--cyan);font-family:"JetBrains Mono",monospace;
+  border:1px solid var(--line-hot);
+  clip-path:polygon(var(--notch-sm) 0,100% 0,100% calc(100% - var(--notch-sm)),
+    calc(100% - var(--notch-sm)) 100%,0 100%,0 var(--notch-sm));color:var(--cyan);font-family:"JetBrains Mono",monospace;
   font-size:10px;letter-spacing:.14em;padding:6px 11px;cursor:pointer;text-transform:uppercase;
   transition:right .32s cubic-bezier(.4,0,.2,1),background .15s}
 #railToggle.out{right:20px}
@@ -200,9 +235,11 @@ canvas.drag{cursor:grabbing}
 /* ---- transport ---- */
 #transport{bottom:44px;left:50%;transform:translateX(-50%);width:min(640px,calc(100vw - 420px));
   display:flex;align-items:center;gap:12px;background:var(--panel);backdrop-filter:blur(9px);
-  border:1px solid var(--line);padding:10px 14px;transition:width .32s}
+  border:1px solid var(--line);padding:10px 14px;transition:width .32s;
+  clip-path:polygon(var(--notch) 0,100% 0,100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,0 100%,0 var(--notch))}
 #transport.wide{width:min(760px,calc(100vw - 80px))}
-#play{background:transparent;border:1px solid var(--line-hot);color:var(--cyan);
+#play{background:transparent;border:1px solid var(--line-hot);clip-path:polygon(var(--notch-sm) 0,100% 0,100% calc(100% - var(--notch-sm)),calc(100% - var(--notch-sm)) 100%,0 100%,0 var(--notch-sm));color:var(--cyan);
   font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;padding:7px 12px;
   cursor:pointer;text-transform:uppercase;flex:none;transition:.15s}
 #play:hover{background:var(--line);box-shadow:0 0 16px rgba(61,214,208,.22)}
@@ -221,6 +258,8 @@ canvas.drag{cursor:grabbing}
 /* ---- hover card ---- */
 #card{position:fixed;z-index:8;pointer-events:none;opacity:0;transition:opacity .11s;
   background:rgba(10,13,19,.97);border:1px solid var(--line-hot);padding:11px 13px;min-width:206px;
+  clip-path:polygon(var(--notch-sm) 0,100% 0,100% calc(100% - var(--notch-sm)),
+    calc(100% - var(--notch-sm)) 100%,0 100%,0 var(--notch-sm));
   max-width:250px;font-family:"JetBrains Mono",monospace;font-size:11px}
 #card .h{font-size:13px;color:var(--accent);font-weight:700;letter-spacing:.05em}
 #card .ch{color:var(--faint);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:7px}
@@ -298,10 +337,11 @@ canvas.drag{cursor:grabbing}
 BODY = r'''
 <canvas id="cv"></canvas>
 <div id="fx"></div>
+<div id="hud"><i></i><i></i><i></i><i></i><u></u></div>
 
 <div class="ov" id="brand">
   <div class="eyebrow" id="eyebrow"></div>
-  <h1>Cavit<span class="d">ation</span></h1>
+  <h1>Vamp<span class="d">net</span></h1>
   <div class="tag" id="tag"></div>
   <div class="date mono" id="date">—</div>
   <div id="legend" role="group" aria-label="Filter by chain"></div>
@@ -314,16 +354,16 @@ BODY = r'''
   <div id="tabs">
     <button data-p="rank" class="on">Rank</button>
     <button data-p="flow">Flows</button>
+    <button data-p="fresh">Fresh</button>
     <button data-p="move">Movers</button>
-    <button data-p="persist">Persist</button>
     <button data-p="find">Search</button>
   </div>
   <div id="search"><input id="q" type="text" placeholder="search token…" autocomplete="off"></div>
   <p class="note" id="paneNote">Cohort capital, reordering as you scrub.</p>
   <div class="pane on" id="p-rank"><div id="board"></div></div>
   <div class="pane" id="p-flow"></div>
+  <div class="pane" id="p-fresh"></div>
   <div class="pane" id="p-move"></div>
-  <div class="pane" id="p-persist"></div>
   <div class="pane" id="p-find"><div id="sres"></div></div>
 </aside>
 
@@ -375,7 +415,16 @@ const CONFIG={
   zoomMin:0.42, zoomMax:4.2,
   fitFill:1.00,           // 1.0 = everything visible on load; the judge never pans
   glowMinPx:7,            // nodes smaller than this get no glow (cheap + cleaner)
-  hullPad:22, hullFill:0.05, hullLine:0.20,   // chain territory outline
+  /* A token the cohort has only just taken a position in is the highest-value
+     thing on the map, and its inflow is usually small in absolute terms — so it
+     loses to the top-N edge cap exactly when it matters. These are drawn whether
+     or not they win that contest. */
+  newDays:14,              // how long a token counts as newly entered
+  freshSourceRank:20,      // the feeder must be a top-N name — a proven winner
+  freshMinShared:3,        // shared wallets before an inflow is worth drawing
+  freshEdges:6,            // fresh inflows guaranteed a line, over the cap
+  groupPad:26, groupArm:16,                    // rotation-neighbourhood frame
+  groupFill:0.028, groupLine:0.42,
   speeds:[0.5,1,2],       // play-rate options
   chain:{                 // rest = identity, hot = saturated; accent takes over at full activity
     /* rest sits close to the background so the CHANGE carries the signal, not raw

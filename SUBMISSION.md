@@ -1,4 +1,4 @@
-# Cavitation — submission case
+# Vampnet — submission case
 
 Scored against the four criteria, with the evidence for each.
 
@@ -42,16 +42,27 @@ is no product — not a missing chart, no product.**
 > *A use case nobody thought to build. We've seen dashboards.*
 
 **It is not a dashboard.** It is a pannable spatial map where **position itself carries
-meaning**. A four-force layout, solved once at build time, places every token: co-rotation
-springs pull tokens that actually trade into each other adjacent, a weak per-chain anchor
-forms visible territories, and a radial time bias keeps early entries at each cluster's
-core and new ones at its rim. Scrubbing animates only size, glow and edges — nodes never
-move, so the map is a place you learn rather than a chart that reshuffles.
+meaning, and none of it is imposed**. Scrubbing animates only size, glow and edges — nodes
+never move, so the map is a place you learn rather than a chart that reshuffles.
 
-The chain anchor is weak on purpose. A token rotating hard with another chain drifts
-toward it, and **that drift is the finding** — a hard chain boundary would have forbidden
-the single most interesting thing in the data. Clustering cut median edge length 41% and
-p90 57% versus the polar layout it replaced.
+We tried seating the chains around a ring and the data refused it: **92% of flow is inside
+a chain, 87% inside Robinhood alone**, and Solana has structurally zero cross-chain edges
+because an EVM keypair cannot hold a Solana token. A chain ring therefore spends a quarter
+of the canvas on 0.2% of the activity.
+
+So position is solved from the rotations alone. Communities are detected on the rotation
+graph, each is solved independently, packed as a disc, and its members take that slot.
+**Robinhood's 54 tokens resolve into distinct rotation neighbourhoods instead of one red
+mass — and four of the seven span more than one chain.** That is a structure a
+chain-shaped layout could not have represented, let alone discovered.
+
+**Capital arriving in a token nobody is watching yet.** The map guarantees a line to any
+rotation out of a top-20 name into a position the cohort opened in the last fortnight,
+*whether or not it wins the day's volume contest* — 861 of the 1,062 such rotations in this
+window sit below the top-N edge cap that every graph of this kind applies, which is to say
+the tool that draws only the biggest flows is structurally blind to the earliest ones. The
+clearest case in the data: on 31 August, **15 wallets moved from PONS — the largest name on
+the map at $49.5M peak — into RAM, on RAM's first day of existence in the cohort**.
 
 **Three things that are genuinely new:**
 
@@ -65,15 +76,19 @@ wallet won **26**. That 741 is the cohort the map draws, recorded in the shipped
 
 | Chain | Repeat-winner rate | Out-of-time coverage |
 |---|---:|---:|
-| Robinhood | **8.6%** | **60%** |
-| BNB | 4.2% | 0% |
-| Base | 0.8% | 0% |
-| Solana | **0.2%** | 0% |
+| Robinhood | **8.6%** | **78%** (7/9) |
+| BNB | 4.2% | 17% (1/6) |
+| Base | 0.8% | 67% (2/3) |
+| Solana | **0.2%** | **0%** (0/6) |
+
+Coverage measured 2026-09-20 on a cohort frozen 31 August, at the same 4+ threshold the map
+uses — `research/scripts/out_of_time.py`, artifact in `research/out_of_time_2026-08-31.json`.
+Base's 2/3 is three tokens and should not be read as a rate.
 
 Counter-intuitively, **Solana — the busiest memecoin chain — has the least persistent
 winners** (one repeat winner in 499). That number is the hard ceiling on whether *any*
-cohort strategy can work on a chain, and no existing tool measures it. We ship it as a
-first-class panel rather than hiding it.
+cohort strategy can work on a chain, and no existing tool measures it. Every chain chip
+carries its own rate, so the caveat sits next to the colour it qualifies.
 
 **We falsified our own thesis and shipped only what survived.** Four independent tests of
 "does flow predict returns" — token-level correlation, five alternative signal formulations,
@@ -118,18 +133,26 @@ Done in 119s · 261 credits used
 
 **Performance, measured in-browser:**
 
-Measured on the authors' hardware against the build tagged in git history. The layout and
-hull rendering landed after this table was taken — **re-measure before submitting**.
+Measured 2026-09-20 on an Apple silicon MacBook Pro with `scripts/measure_perf.js`, against
+the clustered-layout build.
 
-| | p90 frame time |
+These are **draw cost** — how long `draw()` takes to render one frame. Deliberately not
+frame interval, which is floored by the display's refresh rate and so cannot fall below it
+however fast the renderer gets; on the same run the interval sat at 19–33 ms purely because
+macOS idles the panel down to ~45 Hz when nothing demands more. The harness reports both
+columns separately, because reading an interval as a cost makes a fast renderer look slow.
+
+| | p90 draw cost |
 |---|---:|
-| Idle | **9.0 ms** |
-| Panning | **9.3 ms** |
-| Zooming | **9.3 ms** |
+| Idle | **0.4 ms** |
+| Panning | **0.4 ms** |
+| Zooming | **1.0 ms** |
+| Playing | **0.5 ms** |
 
-60fps with headroom, and panning costs the same as standing still — because node draw order
-and edge selection are cached rather than rebuilt per frame (that change alone took it from
-28.6 ms to 9.0 ms). Zero console errors.
+**Panning costs exactly what standing still costs** — 0.4 ms either way — because node draw
+order and edge selection are cached rather than rebuilt per frame. Rendering is roughly 2%
+of a 60 Hz frame budget even while scrubbing, so the map is limited by the display, not by
+the renderer. Zero console errors.
 
 ---
 
@@ -168,5 +191,5 @@ causation costs nothing and makes every other number more credible.
 | 40–55 | Hover the largest node in the Robinhood cluster | Cohort capital, wallets in, **Fed by** / **Feeding** — green in, red out |
 | 55–70 | Flows and Movers tabs | Live rotations and 7-day gainers/bleeders |
 | 70–85 | Search "CASHCAT" → click | Camera flies to it, full rotation card |
-| 85–100 | **Persist** tab | 8.6% Robinhood vs 0.2% Solana against the 4% floor — the finding |
+| 85–100 | Hover the Solana and Robinhood chips | 8.6% vs 0.2% repeat-winner rate against the 4% floor — the finding |
 | 100–110 | Toggle a chain chip off and back on | The map reframes to the remaining territories; then `H` for a clean screenshot |

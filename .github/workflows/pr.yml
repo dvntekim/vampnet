@@ -41,6 +41,9 @@ jobs:
               print(f"  ok   {k} = {e['value']}{e['unit']}  ({e['source']})")
           PY
 
+      - name: Claims still match the run artifacts they cite
+        run: python3 research/scripts/check_claims.py
+
       - name: Site rebuilds from the committed payload
         run: python3 build_site.py
 
