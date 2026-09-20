@@ -1,5 +1,5 @@
 import json
-SITE  = "https://dvnykim.github.io/cavitation/"
+SITE  = "https://dvnykim.github.io/vampnet/"
 BLURB = ("Where proven onchain capital moves next. 741 wallets that each won four or more "
          "separate memecoins, mapped across 80 tokens and 141 days — built entirely on the "
          "Nansen API.")
@@ -181,6 +181,20 @@ canvas.drag{cursor:grabbing}
 .mv .sy{flex:1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mv .dl{flex:none}
 .up{color:var(--in)} .dn{color:var(--out)}
+/* ---- fresh inflow: new tokens taking capital from established names ---- */
+.fr{padding:8px 14px;border-bottom:1px solid var(--hair);font-family:"JetBrains Mono",monospace;
+  font-size:11px;cursor:pointer}
+.fr:hover{background:var(--hover)}
+.fr .t{display:flex;align-items:center;gap:7px}
+.fr .t .sy{color:var(--accent);font-weight:700;flex:1;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.fr .age{font-size:9px;letter-spacing:.1em;color:var(--void);background:var(--accent);
+  padding:1px 5px;flex:none;
+  clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.fr .m{display:flex;justify-content:space-between;gap:8px;color:var(--faint);
+  margin-top:3px;font-size:10px}
+.fr .m b{color:var(--muted);font-weight:400}
+.fr .src{color:var(--in)}
 #sres{padding:0 0 10px}
 #sres .det{padding:10px 14px;font-family:"JetBrains Mono",monospace;font-size:11px}
 #sres .det .h{font-size:14px;color:var(--accent);font-weight:700}
@@ -340,6 +354,7 @@ BODY = r'''
   <div id="tabs">
     <button data-p="rank" class="on">Rank</button>
     <button data-p="flow">Flows</button>
+    <button data-p="fresh">Fresh</button>
     <button data-p="move">Movers</button>
     <button data-p="find">Search</button>
   </div>
@@ -347,6 +362,7 @@ BODY = r'''
   <p class="note" id="paneNote">Cohort capital, reordering as you scrub.</p>
   <div class="pane on" id="p-rank"><div id="board"></div></div>
   <div class="pane" id="p-flow"></div>
+  <div class="pane" id="p-fresh"></div>
   <div class="pane" id="p-move"></div>
   <div class="pane" id="p-find"><div id="sres"></div></div>
 </aside>
@@ -399,6 +415,14 @@ const CONFIG={
   zoomMin:0.42, zoomMax:4.2,
   fitFill:1.00,           // 1.0 = everything visible on load; the judge never pans
   glowMinPx:7,            // nodes smaller than this get no glow (cheap + cleaner)
+  /* A token the cohort has only just taken a position in is the highest-value
+     thing on the map, and its inflow is usually small in absolute terms — so it
+     loses to the top-N edge cap exactly when it matters. These are drawn whether
+     or not they win that contest. */
+  newDays:14,              // how long a token counts as newly entered
+  freshSourceRank:20,      // the feeder must be a top-N name — a proven winner
+  freshMinShared:3,        // shared wallets before an inflow is worth drawing
+  freshEdges:6,            // fresh inflows guaranteed a line, over the cap
   groupPad:26, groupArm:16,                    // rotation-neighbourhood frame
   groupFill:0.028, groupLine:0.42,
   speeds:[0.5,1,2],       // play-rate options

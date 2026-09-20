@@ -99,6 +99,37 @@ function edgeAt(e,t){
   return best;
 }
 const shown=n=>chainOn[n.chain];
+/* ---- newly entered tokens, and capital arriving in them --------------------
+   A position the cohort opened days ago, being fed by a name it has held for
+   months, is the most actionable thing this map can show — and it is almost
+   always small in absolute terms, so it is precisely what a top-N edge cap
+   throws away. 861 of the 1,062 such rotations in this window fall below that
+   cap. They are drawn regardless. */
+const ageAt=(n,t)=>t-n.first;
+const isNew=(n,t)=>{const a=ageAt(n,t);return a>=0&&a<=CONFIG.newDays;};
+/* The feeder has to be a name worth following, not merely an older one: capital
+   leaving a top-ranked winner for a days-old position is the claim. */
+const bigName=n=>n.rank<CONFIG.freshSourceRank;
+const isFreshInflow=(e,t)=>isNew(NODE[e.b],t)&&!isNew(NODE[e.a],t)&&bigName(NODE[e.a]);
+function freshInto(id,t){
+  /* established feeders of one new token, strongest first */
+  return (IN[id]||[]).map(e=>({s:NODE[e.a],w:edgeAt(e,t)}))
+    .filter(r=>r.w>=CONFIG.freshMinShared&&!isNew(r.s,t)&&bigName(r.s))
+    .sort((a,b)=>b.w-a.w);
+}
+function freshBoard(t){
+  const out=[];
+  for(const n of D.nodes){
+    if(!shown(n)||!isNew(n,t))continue;
+    const src=freshInto(n.id,t);
+    if(!src.length)continue;
+    /* weight the feeder's standing: capital leaving a proven name says more
+       than the same wallets leaving another new one */
+    const score=src.reduce((a,r)=>a+r.w*Math.log10(Math.max(10,r.s.peak)),0);
+    out.push({n,src,score,age:Math.round(ageAt(n,t)),usd:sample(n.usd,t)});
+  }
+  return out.sort((a,b)=>b.score-a.score);
+}
 /* Draw order is by rank and never changes — sorting 80 nodes every frame was pure
    waste. Rebuilt only when a chain filter toggles. */
 let ORDER=[];
@@ -208,8 +239,16 @@ function edgesFor(t){
     live.push({e,w});
   }
   live.sort((p,q)=>q.w-p.w);
-  const list = hoverId ? live.filter(r=>r.e.a===hoverId||r.e.b===hoverId)
-                       : live.slice(0,CONFIG.maxEdges);
+  let list = hoverId ? live.filter(r=>r.e.a===hoverId||r.e.b===hoverId)
+                     : live.slice(0,CONFIG.maxEdges);
+  if(!hoverId){
+    /* whatever the cap decided, capital arriving in a newly entered token gets
+       drawn — that is the edge this product exists to surface */
+    const seen=new Set(list.map(r=>r.e));
+    const fresh=live.filter(r=>!seen.has(r.e)&&r.w>=CONFIG.freshMinShared
+                               &&isFreshInflow(r.e,t)).slice(0,CONFIG.freshEdges);
+    if(fresh.length)list=list.concat(fresh);
+  }
   EDGE_CACHE={t,h:hoverId,list};
   return list;
 }
@@ -250,12 +289,14 @@ function draw(t){
     /* While focused, direction beats chain identity: green feeds IN, red feeds OUT.
        The glow has to follow the same colour or it washes the coding out. */
     let g, glowCol=cc(b.chain).hot;
+    const freshIn=isFreshInflow(e,t);
     if(hoverId===e.b){glowCol=CSSV('--in'); g=glowCol;}
     else if(hoverId===e.a){glowCol=CSSV('--out'); g=glowCol;}
+    else if(freshIn){glowCol=ACCENT; g=ACCENT;}   // reserved colour, reserved meaning
     else{const lg=ctx.createLinearGradient(x1,y1,x2,y2);
       lg.addColorStop(0,cc(a.chain).hot);lg.addColorStop(1,cc(b.chain).hot);g=lg;}
-    ctx.globalAlpha=alpha;ctx.strokeStyle=g;
-    ctx.lineWidth=Math.min(3.2,(0.5+w*0.24))*Math.min(1.5,k)*(hoverId?1.25:1);
+    ctx.globalAlpha=freshIn?Math.min(0.9,alpha*1.7+0.18):alpha;ctx.strokeStyle=g;
+    ctx.lineWidth=Math.min(3.2,(0.5+w*0.24))*Math.min(1.5,k)*(hoverId?1.25:1)*(freshIn?1.5:1);
     ctx.shadowBlur=blur(11*Math.min(1.4,k));ctx.shadowColor=glowCol;
     ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(mx,my,x2,y2);ctx.stroke();
     const nP=Math.min(4,1+Math.floor(w/3));
@@ -313,6 +354,32 @@ function draw(t){
       ctx.shadowBlur=bigEnough?blur(CONFIG.glow.core*heat):0;
       ctx.beginPath();ctx.arc(x,y,C,0,7);ctx.fill();
       ctx.globalAlpha=.88*A;ctx.beginPath();ctx.arc(x,y,C*.42,0,7);ctx.fill();
+    }
+    /* Newly entered tokens carry a HUD bracket and their age. One being fed by
+       an established name is the signal itself, so it also gets the reserved
+       accent and a tag — a small position can still be the loudest thing here. */
+    if(isNew(n,t)&&born>0.5){
+      const fed=freshInto(n.id,t).length>0;
+      const mr=Math.max(R,7)+7, br=mr*0.52;
+      ctx.globalAlpha=(fed?0.95:0.45)*dim(n.id);
+      ctx.strokeStyle=fed?ACCENT:col;ctx.lineWidth=fed?1.5:1;
+      ctx.shadowBlur=fed?blur(9):0;ctx.shadowColor=ACCENT;
+      ctx.beginPath();
+      ctx.moveTo(x-mr,y-mr+br);ctx.lineTo(x-mr,y-mr);ctx.lineTo(x-mr+br,y-mr);
+      ctx.moveTo(x+mr-br,y-mr);ctx.lineTo(x+mr,y-mr);ctx.lineTo(x+mr,y-mr+br);
+      ctx.moveTo(x+mr,y+mr-br);ctx.lineTo(x+mr,y+mr);ctx.lineTo(x+mr-br,y+mr);
+      ctx.moveTo(x-mr+br,y+mr);ctx.lineTo(x-mr,y+mr);ctx.lineTo(x-mr,y+mr-br);
+      ctx.stroke();ctx.shadowBlur=0;
+      if(fed&&R>=5){
+        const tag=`NEW ${Math.max(0,Math.round(ageAt(n,t)))}D`;
+        ctx.font=`700 9px "JetBrains Mono",monospace`;
+        const tw=textW(tag,9);
+        ctx.globalAlpha=dim(n.id);ctx.fillStyle=ACCENT;
+        ctx.fillRect(x-tw/2-4,y-mr-14,tw+8,11);
+        ctx.fillStyle=VOID;ctx.textAlign='center';
+        ctx.fillText(tag,x,y-mr-5.5);
+        ctx.font=`600 ${labelFs}px "Chakra Petch",sans-serif`;   // restore label font
+      }
     }
     if(hot||n.rank<budget||R>=labelMinPx){
       const fs=labelFs;
@@ -659,11 +726,13 @@ document.getElementById('ticks').innerHTML=[0,.25,.5,.75,1]
    ========================================================================= */
 const board=document.getElementById('board'), ROWS={};
 const panes={rank:document.getElementById('p-rank'),flow:document.getElementById('p-flow'),
-             move:document.getElementById('p-move'),find:document.getElementById('p-find')};
+             move:document.getElementById('p-move'),find:document.getElementById('p-find'),
+             fresh:document.getElementById('p-fresh')};
 
 const NOTES={rank:'Cohort capital, reordering as you scrub.',
              flow:'Shared wallets reducing one token while increasing another.',
              move:'7-day change in cohort capital at this frame.',
+             fresh:'Tokens the cohort has just entered, and the established names funding them.',
              find:'Find a token and see what it feeds, and what feeds it.'};
 let pane='rank', lastPaint=0;
 function showPane(p){
@@ -748,6 +817,23 @@ function paintMove(t){
   panes.move.querySelectorAll('.mv[data-id]').forEach(el=>
     el.addEventListener('click',()=>focusToken(el.dataset.id)));
 }
+function paintFresh(t){
+  const rows=freshBoard(t).slice(0,14);
+  panes.fresh.innerHTML = rows.length ? rows.map(r=>{
+    const feeders=r.src.slice(0,3).map(f=>f.s.sym.slice(0,10)).join(', ');
+    return `<div class="fr" data-id="${r.n.id}">
+      <div class="t"><span class="dt" style="background:${cc(r.n.chain).hot};width:7px;height:7px;
+        border-radius:50%"></span><span class="sy">${r.n.sym.slice(0,14)}</span>
+        <span class="age">NEW ${r.age}D</span></div>
+      <div class="m"><span>fed by <b class="src">${feeders}</b></span>
+        <span><b>${Math.round(r.src.reduce((a,f)=>a+f.w,0))}w</b> · ${fmt(r.usd)}</span></div>
+    </div>`;}).join('')
+    : '<div class="fr" style="cursor:default"><div class="m">'+
+      'No established name is feeding a new position in this window.</div></div>';
+  panes.fresh.querySelectorAll('.fr[data-id]').forEach(el=>
+    el.addEventListener('click',()=>focusToken(el.dataset.id)));
+}
+
 /* ---------- (1) search ---------- */
 let query='', picked=null;
 const qEl=document.getElementById('q');
@@ -787,6 +873,7 @@ function paintRail(t){
   if(pane==='rank')paintRank(t);
   else if(pane==='flow')paintFlow(t);
   else if(pane==='move')paintMove(t);
+  else if(pane==='fresh')paintFresh(t);
   else paintFind(t);
 }
 

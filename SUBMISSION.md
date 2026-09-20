@@ -56,6 +56,14 @@ graph, each is solved independently, packed as a disc, and its members take that
 mass — and four of the seven span more than one chain.** That is a structure a
 chain-shaped layout could not have represented, let alone discovered.
 
+**Capital arriving in a token nobody is watching yet.** The map guarantees a line to any
+rotation out of a top-20 name into a position the cohort opened in the last fortnight,
+*whether or not it wins the day's volume contest* — 861 of the 1,062 such rotations in this
+window sit below the top-N edge cap that every graph of this kind applies, which is to say
+the tool that draws only the biggest flows is structurally blind to the earliest ones. The
+clearest case in the data: on 31 August, **15 wallets moved from PONS — the largest name on
+the map at $49.5M peak — into RAM, on RAM's first day of existence in the cohort**.
+
 **Three things that are genuinely new:**
 
 **A cohort defined by repetition, not by label.** Everyone else pipes Nansen's Smart Money

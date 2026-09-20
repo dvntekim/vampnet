@@ -6,14 +6,14 @@ Scrub 141 days and watch capital from 741 wallets — each of which won **four o
 separate memecoins** — rotate between 80 tokens across four chains. Ring = market cap,
 glowing core = cohort capital, edges = co-rotation. Only what is moving lights up.
 
-**Live: https://dvnykim.github.io/cavitation/**
+**Live: https://dvnykim.github.io/vampnet/**
 
 ---
 
 ## Run it
 
 ```bash
-git clone https://github.com/dvnykim/cavitation && cd cavitation
+git clone https://github.com/dvnykim/vampnet && cd vampnet
 read -rs -p "Nansen API key: " K && printf 'NANSEN_API_KEY=%s\n' "$K" > .env && chmod 600 .env
 
 python3 make.py --demo        # live build from the API
@@ -173,6 +173,15 @@ chain-pure, which is the part a chain-shaped layout could never have shown.
 
 Frames on the map are rotation neighbourhoods, labelled by their biggest token; `⁑` marks
 one that spans more than one chain.
+
+**Fresh inflow.** A token the cohort entered days ago, being fed by a name it has held for
+months, is the most actionable thing here — and it is almost always small in absolute
+terms, so a top-N edge cap is exactly what throws it away: **861 of the 1,062 such
+rotations in this window fall below that cap**. So they are drawn regardless of it, in the
+reserved accent, into a bracketed node tagged with its age. The feeder has to be a top-20
+name, or the signal is just churn. The **Fresh** panel ranks them by how much standing the
+feeders have, so `PONS → RAM` on RAM's first day outranks a larger flow between two
+unknowns.
 
 Right rail: **Rank** · **Flows** (what is draining into what) · **Movers** (7-day gainers
 and bleeders) · **Search**. Repeat-winner rate per chain — the ceiling on whether a cohort

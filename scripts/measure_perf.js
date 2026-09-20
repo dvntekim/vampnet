@@ -16,7 +16,7 @@
  * columns apart.
  *
  * HOW TO RUN
- *   1. Open the site (https://dvnykim.github.io/cavitation/ or docs/index.html).
+ *   1. Open the site (https://dvnykim.github.io/vampnet/ or docs/index.html).
  *   2. DevTools -> Console.  (Cmd+Opt+J on macOS, Ctrl+Shift+J elsewhere.)
  *   3. Paste this whole file, press Enter.
  *   4. Do not touch the mouse or keyboard for ~10 seconds.
@@ -24,7 +24,7 @@
  */
 (async () => {
   if (typeof draw !== 'function') {
-    console.error('draw() not found — run this on the Cavitation page, after it has loaded.');
+    console.error('draw() not found — run this on the Vampnet page, after it has loaded.');
     return;
   }
 
