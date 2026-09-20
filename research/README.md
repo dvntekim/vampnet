@@ -8,6 +8,7 @@ Read in this order:
 
 | File | What it covers |
 |---|---|
+| **[NUMBERS.md](NUMBERS.md)** | **Start here. Every displayed figure, its scope, and the run that produced it** |
 | [RESEARCH.md](RESEARCH.md) | Nansen API survey; why prediction markets and perps were the clean lanes |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | First design (swap-chain tracing) and the two corrections that killed it |
 | [FINDINGS.md](FINDINGS.md) | The BNB pilot failure: launchpad settlement is invisible to DEX-trade endpoints |
@@ -17,5 +18,14 @@ Read in this order:
 | [BUDGET.md](BUDGET.md) | Measured credit costs per pipeline stage |
 
 `scripts/` holds the analysis code behind those documents — leave-one-out
-coverage, the event studies, and the earlier pipeline. None of it is on the
-production path; `make.py` does not import from here.
+coverage, the frozen-cohort out-of-time test, the event studies, and the earlier
+pipeline.
+
+| Script | Produces |
+|---|---|
+| [scripts/out_of_time.py](scripts/out_of_time.py) | The coverage headline. Builds a cohort that provably cannot see the test period, then measures what it held. `--write-claims` updates `claims.json` in place |
+| [scripts/coverage.py](scripts/coverage.py) | Leave-one-out coverage, precision lift, lead time, first sightings |
+
+`make.py` imports none of it, with one deliberate exception: it reads
+[claims.json](claims.json) so that no headline number can be hardcoded into the
+pipeline. Changing a displayed figure means re-measuring it.

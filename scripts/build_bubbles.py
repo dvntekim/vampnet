@@ -1,5 +1,5 @@
-"""Build the front-end payload: nodes, activity, time-windowed edges, lifecycle layout."""
-import json, math, collections, statistics as stx
+"""Build the front-end payload: nodes, activity, time-windowed edges, clustered layout."""
+import json, math, random, collections, statistics as stx
 
 STABLE={"USDC","USDT","USDG","USDE","USD1","USAD","PYUSD","RLUSD","DAI","FDUSD","BUSD","WETH",
         "ETH","WBNB","BNB","WBTC","BTC","BTCB","CBBTC","SOL","WSOL","DSOL","JITOSOL","MSOL",
@@ -115,51 +115,192 @@ def build(bal, mcser, top_n=26, min_peak=30000):
         if k not in seen: kept.append(e); seen.add(k)
     edges=kept[:CAP]
 
-    # ---- LIFECYCLE LAYOUT -------------------------------------------------
-    # angle  = chain (wedge width proportional to how many tokens it holds)
-    # radius = when the cohort FIRST entered  -> centre = early, rim = new
-    # overlaps are resolved by nudging ANGLE only, so radius stays a clean time axis.
     CH=sorted({n["chain"] for n in nodes},
               key=lambda c:-sum(1 for n in nodes if n["chain"]==c))
-    span=max(1,len(days)-1)
-    by=collections.defaultdict(list)
-    for n in nodes: by[n["chain"]].append(n)
-    total=len(nodes); cursor=0.0; GAP=0.10        # radians of padding between wedges
-    SEP=0.30 if len(nodes)<=30 else 0.20         # required gap; map is pannable so we can spread
-    # percentile rank of first-entry -> even radial spread, order preserved
-    order=sorted(nodes, key=lambda n:n["first"])
-    rank={n["id"]:i/max(1,len(order)-1) for i,n in enumerate(order)}
-    pol={}
-    for c in CH:
-        grp=sorted(by[c], key=lambda n:n["first"])
-        width=2*math.pi*(len(grp)/total)-GAP
-        GOLD=0.6180339887498949
-        for j,n in enumerate(grp):
-            frac=((j*GOLD)%1.0) if len(grp)>12 else (j+0.5)/len(grp)
-            pol[n["id"]]=[cursor+GAP/2+width*frac,                      # angle
-                          0.26+1.30*rank[n["id"]]]                      # radius
-        cursor+=width+GAP
-    # angular separation pass — radius is never touched
-    ids=[n["id"] for n in nodes]
-    for _ in range(900):
-        moved=False
-        for i in range(len(ids)):
-            for j in range(i+1,len(ids)):
-                a,b=pol[ids[i]],pol[ids[j]]
-                ax,ay=math.cos(a[0])*a[1],math.sin(a[0])*a[1]
-                bx,by_=math.cos(b[0])*b[1],math.sin(b[0])*b[1]
-                d=math.hypot(bx-ax,by_-ay)
-                if d<SEP:
-                    push=(SEP-d)*0.35/max(a[1],b[1],0.2)
-                    sgn=1 if (b[0]-a[0])%(2*math.pi)<math.pi else -1
-                    a[0]-=push*sgn; b[0]+=push*sgn; moved=True
-        if not moved: break
-    for n in nodes:
-        ang,rad=pol[n["id"]]
-        n["x"]=round(math.cos(ang)*rad,4)
-        n["y"]=round(math.sin(ang)*rad*0.84,4)
-    m=max(max(abs(n["x"]),abs(n["y"])) for n in nodes)
-    SPAN=0.95 if len(nodes)<=30 else 1.55   # virtual map can exceed the viewport
-    for n in nodes:
-        n["x"]=round(n["x"]/m*SPAN,4); n["y"]=round(n["y"]/m*SPAN,4)
+    layout(nodes, edges)
     return {"days":days,"nodes":nodes,"edges":edges,"chains":CH}
+
+
+# =============================================================================
+# LAYOUT — where a token sits, and why.
+#
+# The previous layout was a polar scatter: angle = chain, radius = first-entry
+# percentile. It made position meaningful but decoupled it from connectivity, so
+# two tokens sharing forty wallets could sit on opposite rims and the rotation
+# between them was drawn as a long arc across empty space. Long arcs are noise;
+# the eye cannot follow them, and the map read as scattered rather than as flow.
+#
+# This clusters instead. Four forces, in order of strength:
+#
+#   springs   tokens that actually rotate into each other are pulled adjacent,
+#             so a rotation becomes a SHORT link between neighbours
+#   repulsion radius-aware, so big bubbles do not overlap but small ones pack
+#   anchor    each chain gets a weak centroid — territories form, but a token
+#             rotating hard with another chain can drift toward it, and that
+#             drift is itself information a hard wedge would have forbidden
+#   time      inside a cluster, early entries sit toward the core and new ones
+#             toward the rim, preserving "centre is conviction" as a local read
+#
+# Positions are solved here, at build time, and frozen. The renderer never moves
+# a node: that is what keeps scrubbing at 60fps and makes the map a place you
+# learn rather than a chart that reshuffles.
+# =============================================================================
+SPRING, REPEL, COLLIDE = 0.85, 0.00040, 1.08
+ANCHOR, CORE, SPREAD   = 0.80, 0.11, 0.30
+STEP, ITERS, MAXSTEP   = 0.42, 700, 0.030
+CLEARANCE              = 1.45   # gap between adjacent chain territories
+# The anchor force is soft, so solved positions overshoot their target ring;
+# CLEARANCE is sized for where nodes actually land, not where they are aimed.
+# A hub with thirty rotations accumulates thirty spring forces and, unchecked,
+# overshoots the whole map in one step and never recovers. Two standard guards:
+# mass grows with degree, and no node may move more than MAXSTEP per iteration.
+MASS_PER_DEGREE        = 0.35
+
+
+def _chain_ring(nodes, link, chains):
+    """Seat chains around a circle so the strongest inter-chain rotation lands on
+    adjacent seats — the dominant direction of flow then reads around the ring
+    instead of criss-crossing it."""
+    between = collections.Counter()
+    for a, b, w in link:
+        ca, cb = nodes[a]["chain"], nodes[b]["chain"]
+        if ca != cb:
+            between[frozenset((ca, cb))] += w
+    order, rest = [chains[0]], set(chains[1:])
+    while rest:
+        last = order[-1]
+        nxt = max(rest, key=lambda c: between.get(frozenset((last, c)), 0.0))
+        order.append(nxt)
+        rest.discard(nxt)
+
+    size = {c: sum(1 for n in nodes if n["chain"] == c) for c in order}
+    # sqrt, not linear: one chain holding two thirds of the tokens would otherwise
+    # leave the other three without enough arc to be legible
+    tot = sum(math.sqrt(size[c]) for c in order)
+    mean = sum(size.values()) / len(order)
+
+    # A cluster's internal spread has to track its population, or 54 tokens pack
+    # into the same disc as 5: one becomes an unreadable knot, the other a balloon
+    # of empty hull. Everything downstream is normalised, so only ratios matter.
+    spread = {c: math.sqrt(size[c] / mean) for c in order}
+
+    theta, cursor = {}, 0.0
+    for c in order:
+        frac = math.sqrt(size[c]) / tot
+        theta[c] = 2 * math.pi * (cursor + frac / 2)
+        cursor += frac
+
+    if len(order) == 1:
+        return {order[0]: (0.0, 0.0)}, spread
+
+    # Seat the ring wide enough that no two adjacent clusters can touch, solved
+    # from the chord between them rather than guessed at.
+    ring = 0.0
+    for i, c in enumerate(order):
+        d = order[(i + 1) % len(order)]
+        dth = (theta[d] - theta[c]) % (2 * math.pi)
+        half = math.sin(min(dth, 2 * math.pi - dth) / 2) or 1e-6
+        reach = (spread[c] + spread[d]) * (CORE + SPREAD) * CLEARANCE
+        ring = max(ring, reach / (2 * half))
+
+    return {c: (math.cos(theta[c]) * ring, math.sin(theta[c]) * ring) for c in order}, spread
+
+
+def layout(nodes, edges, aspect=0.80, iters=ITERS, seed=7):
+    """Solve node positions in place. Sets n["x"], n["y"] on every node."""
+    n_count = len(nodes)
+    if not n_count:
+        return
+    rnd = random.Random(seed)                      # seeded: builds are reproducible
+    ix = {n["id"]: i for i, n in enumerate(nodes)}
+
+    # what the eye actually has to fit is the market-cap ring, not the node centre
+    mcmax = max((max(n["mc"]) for n in nodes), default=1) or 1
+    rad = [0.030 + 0.070 * math.sqrt((max(n["mc"]) or 0) / mcmax) for n in nodes]
+
+    # edge strength, log-compressed so one enormous pair cannot dominate the solve
+    link = []
+    for e in edges:
+        a, b = ix.get(e["a"]), ix.get(e["b"])
+        if a is None or b is None or a == b:
+            continue
+        w = sum(e["w"])
+        if w > 0:
+            link.append((a, b, math.log1p(w)))
+    if link:
+        top = max(l[2] for l in link) or 1.0
+        link = [(a, b, w / top) for a, b, w in link]
+
+    chains = sorted({n["chain"] for n in nodes},
+                    key=lambda c: -sum(1 for n in nodes if n["chain"] == c))
+    anchor, spread = _chain_ring(nodes, link, chains)
+
+    # first-entry percentile -> where inside its cluster a token wants to sit
+    tpct = [0.0] * n_count
+    for r, i in enumerate(sorted(range(n_count), key=lambda i: nodes[i]["first"])):
+        tpct[i] = r / max(1, n_count - 1)
+
+    # heavier nodes are the well-connected ones, so hubs anchor the clusters
+    # instead of being flung around by the tokens hanging off them
+    mass = [1.0] * n_count
+    for a, b, w in link:
+        mass[a] += MASS_PER_DEGREE * w
+        mass[b] += MASS_PER_DEGREE * w
+
+    px, py = [0.0] * n_count, [0.0] * n_count
+    for i, n in enumerate(nodes):
+        ax, ay = anchor[n["chain"]]
+        a = rnd.random() * 2 * math.pi
+        r = (0.05 + 0.20 * math.sqrt(rnd.random())) * spread[n["chain"]]
+        px[i], py[i] = ax + math.cos(a) * r, ay + math.sin(a) * r
+
+    for it in range(iters):
+        cool = (1 - it / iters) ** 1.2
+        fx, fy = [0.0] * n_count, [0.0] * n_count
+
+        for a, b, w in link:                       # co-rotation springs
+            dx, dy = px[b] - px[a], py[b] - py[a]
+            d = math.hypot(dx, dy) or 1e-6
+            rest = (rad[a] + rad[b]) * 1.9 + 0.02
+            f = SPRING * w * (d - rest)
+            ux, uy = dx / d, dy / d
+            fx[a] += f * ux; fy[a] += f * uy
+            fx[b] -= f * ux; fy[b] -= f * uy
+
+        for i in range(n_count):                   # repulsion + hard collision
+            for j in range(i + 1, n_count):
+                dx, dy = px[j] - px[i], py[j] - py[i]
+                d2 = dx * dx + dy * dy
+                d = math.sqrt(d2) or 1e-6
+                ux, uy = dx / d, dy / d
+                rep = REPEL * (rad[i] + rad[j]) / max(d2, 0.0016)
+                fx[i] -= rep * ux; fy[i] -= rep * uy
+                fx[j] += rep * ux; fy[j] += rep * uy
+                floor = (rad[i] + rad[j]) * COLLIDE
+                if d < floor:
+                    push = (floor - d) * 0.5
+                    fx[i] -= push * ux; fy[i] -= push * uy
+                    fx[j] += push * ux; fy[j] += push * uy
+
+        for i, n in enumerate(nodes):              # chain anchor + time-in-cluster
+            ax, ay = anchor[n["chain"]]
+            dx, dy = px[i] - ax, py[i] - ay
+            d = math.hypot(dx, dy) or 1e-6
+            want = (CORE + SPREAD * tpct[i]) * spread[n["chain"]]
+            f = ANCHOR * (d - want)
+            fx[i] -= f * dx / d; fy[i] -= f * dy / d
+
+        lim = MAXSTEP * cool
+        for i in range(n_count):
+            dx = fx[i] / mass[i] * STEP * cool
+            dy = fy[i] / mass[i] * STEP * cool
+            m = math.hypot(dx, dy)
+            if m > lim:                            # hard displacement clamp
+                dx, dy = dx / m * lim, dy / m * lim
+            px[i] += dx
+            py[i] += dy
+
+    span = max(max(abs(px[i]), abs(py[i])) for i in range(n_count)) or 1.0
+    for i, n in enumerate(nodes):
+        n["x"] = round(px[i] / span, 4)
+        n["y"] = round(py[i] / span * aspect, 4)   # flatten to suit a wide viewport

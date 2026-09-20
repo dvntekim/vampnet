@@ -135,12 +135,27 @@ def step4_mcap(cfg, bal, B):
     json.dump(mc, open(MC,"w"), separators=(",",":"))
     return mc
 
+def claims():
+    """Headline numbers come from research/claims.json — never from a literal here.
+
+    Every displayed number carries the scope it was measured under, so the site
+    cannot drift from the research that backs it. Regenerate the coverage figure
+    with research/scripts/out_of_time.py --write-claims.
+    """
+    return json.load(open(os.path.join(ROOT, "research", "claims.json")))
+
 def step5_payload(cfg, bal, mc, ncoh):
     p = build(bal, mc, top_n=cfg["tokens"], min_peak=cfg["min_peak"])
     pf=D("persistence.json")
     p["persistence"]=json.load(open(pf)) if os.path.exists(pf) else []
-    p["stats"]={"cohort":ncoh,"oot":91,"lift":23,"lead":16,
-                "pool":cfg.get("pool",0),"tokens":len(p["nodes"])}
+    C=claims()
+    p["claims"]={k:{"value":C[k]["value"],"unit":C[k]["unit"],"label":C[k]["label"],
+                    "detail":C[k].get("detail",""),"scope":C[k]["scope"],
+                    "verified":C[k]["verified"]}
+                 for k in ("oot","lift","lead")}
+    p["stats"]={"cohort":ncoh,"pool":cfg.get("pool",0),"tokens":len(p["nodes"]),
+                "built":dt.date.today().isoformat(),
+                "oot":C["oot"]["value"],"lift":C["lift"]["value"],"lead":C["lead"]["value"]}
     json.dump(p, open(D("bubbles80.json"),"w"), separators=(",",":"))
     log("5/6", f"payload: {len(p['nodes'])} nodes, {len(p['edges'])} edges, {len(p['days'])} days")
     return p

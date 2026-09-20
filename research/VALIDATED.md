@@ -1,5 +1,17 @@
 # VALIDATED PRODUCT METRICS — 2026-09-18
 
+> **Scope of this document.** These are measurements of the **48-day validation pilot**
+> (127 EVM + 4 Solana wallets, 2+ threshold), not of the 141-day map the site renders
+> (741 wallets, 4+ threshold). The two are different configurations and their numbers are
+> not interchangeable. Which number is canonical for which claim is settled in
+> [NUMBERS.md](NUMBERS.md); nothing is displayed anywhere unless it appears in
+> [claims.json](claims.json) with a provenance entry.
+>
+> Read this file top to bottom: the **CORRECTION** section below supersedes the recall figure
+> stated immediately under it, and the **PRODUCTION CONFIGURATION** section supersedes the
+> cohort definition. The superseded numbers are kept deliberately — the correction is the
+> result.
+
 Cohort: **127 EVM + 4 Solana wallets**, each an independent winner on **2+ of 35 systematically
 identified winning tokens** (mcap>$5M, vol>$2M, +200% over Aug 15 – Sep 17) across 6 chains.
 Selected from **2,519 distinct winners** — a 5.0% recurrence rate.

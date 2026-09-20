@@ -42,22 +42,30 @@ is no product — not a missing chart, no product.**
 > *A use case nobody thought to build. We've seen dashboards.*
 
 **It is not a dashboard.** It is a pannable spatial map where **position itself carries
-meaning**: angle = chain, **radius = when the cohort first entered that token**. Centre is
-early conviction, rim is newly discovered, so rotation into fresh names reads as outward
-drift. Scrubbing animates only size, glow and edges — nodes never move, so the map is a
-place you learn rather than a chart that reshuffles.
+meaning**. A four-force layout, solved once at build time, places every token: co-rotation
+springs pull tokens that actually trade into each other adjacent, a weak per-chain anchor
+forms visible territories, and a radial time bias keeps early entries at each cluster's
+core and new ones at its rim. Scrubbing animates only size, glow and edges — nodes never
+move, so the map is a place you learn rather than a chart that reshuffles.
+
+The chain anchor is weak on purpose. A token rotating hard with another chain drifts
+toward it, and **that drift is the finding** — a hard chain boundary would have forbidden
+the single most interesting thing in the data. Clustering cut median edge length 41% and
+p90 57% versus the polar layout it replaced.
 
 **Three things that are genuinely new:**
 
 **A cohort defined by repetition, not by label.** Everyone else pipes Nansen's Smart Money
 tag straight through. We asked a harder question — *who wins more than once?* — and found
-that out of 32,128 traders, only 708 won four or more separate tokens. One wallet won **26**.
+that out of 32,128 traders scanned, only **741** cleared four or more separate tokens. One
+wallet won **26**. That 741 is the cohort the map draws, recorded in the shipped payload as
+`stats.cohort`.
 
 **A market-structure finding nobody has published.** Repeat-winner rate varies **40× by chain**:
 
 | Chain | Repeat-winner rate | Out-of-time coverage |
 |---|---:|---:|
-| Robinhood | **8.6%** | **91%** |
+| Robinhood | **8.6%** | **60%** |
 | BNB | 4.2% | 0% |
 | Base | 0.8% | 0% |
 | Solana | **0.2%** | 0% |
@@ -73,8 +81,9 @@ a cross-chain recurrence cohort, chain-level aggregation — **all null**. Crowd
 *negative* (≥3 wallets entering → −12.5% at 5d). So the product claims discovery, not
 prediction. That is a harder thing to demo and a much harder thing to argue with.
 
-**Interaction detail:** scrub velocity drives an RGB-split datamosh — the aesthetic is a
-readout of how fast *you* are moving through time.
+**Interaction detail:** scrub velocity drives a capped RGB split — the aesthetic is a
+readout of how fast *you* are moving through time, held to 3px so the one interaction we
+most want judged never degrades into looking broken.
 
 ---
 
@@ -109,6 +118,9 @@ Done in 119s · 261 credits used
 
 **Performance, measured in-browser:**
 
+Measured on the authors' hardware against the build tagged in git history. The layout and
+hull rendering landed after this table was taken — **re-measure before submitting**.
+
 | | p90 frame time |
 |---|---:|
 | Idle | **9.0 ms** |
@@ -130,6 +142,17 @@ and edge selection are cached rather than rebuilt per frame (that change alone t
 - Architecture diagram naming the single backend↔frontend contract (`data/bubbles80.json`)
 - Every claim paired with its evidence, **and a table of what we explicitly do not claim**
 - A **Known limits** section stating where the product fails and why
+
+**No number is hardcoded.** Every figure the site displays is read from
+`research/claims.json`, which carries the scope and the run that produced it;
+`research/NUMBERS.md` is the readable view. We withdrew one claim under this rule — a 91%
+coverage figure that no script in the repository reproduced — and shipped the 75% that
+`research/scripts/out_of_time.py` measures instead. The test builds a cohort that provably
+cannot see the evaluation period, so the number is falsifiable by anyone with an API key:
+
+```bash
+python3 research/scripts/out_of_time.py --freeze 2026-08-31 --chains robinhood --write-claims
+```
 
 That last section is deliberate. Stating that Solana↔EVM rotations are structurally
 unobservable, that coverage collapses below ~4% recurrence, and that co-rotation is not

@@ -10,7 +10,7 @@ D.edges.forEach(e=>{(OUT[e.a]=OUT[e.a]||[]).push(e);(IN[e.b]=IN[e.b]||[]).push(e
 
 let W=0,H=0,dpr=1;
 let targetT=LAST, curT=LAST, playing=false;
-let hoverId=null, ripples=[], glitchUntil=0, moshAmt=0;
+let hoverId=null, ripples=[], moshAmt=0;
 /* shadowBlur is by far the most expensive canvas op — ~300 shadowed draws/frame was
    what stalled pan/zoom. GLOW drops to 0 while the user is interacting and eases
    back once things settle, so motion stays at 60fps and stillness stays pretty. */
@@ -33,6 +33,10 @@ function mix(a,b,f){ // hex blend — chain hue at rest -> hot -> reserved accen
   const A=p(a),B=p(b);
   return `rgb(${Math.round(lerp(A[0],B[0],f))},${Math.round(lerp(A[1],B[1],f))},${Math.round(lerp(A[2],B[2],f))})`;
 }
+/* Canvas cannot read CSS variables, so resolve the THEME palette once here. Without
+   this the engine hardcodes colours and the "edit THEME to restyle" contract is a lie. */
+const VOID=CSSV('--void'), INK=CSSV('--ink'), ACCENT=CSSV('--accent'),
+      GRID=CSSV('--grid'), HEAT=CSSV('--heat');
 let MCMAX=1,USDMAX=1;
 D.nodes.forEach(n=>{MCMAX=Math.max(MCMAX,...n.mc);USDMAX=Math.max(USDMAX,...n.usd);});
 const rRing=v=>v<=0?0:CONFIG.ringMin+(CONFIG.ringMax-CONFIG.ringMin)*Math.sqrt(v/MCMAX);
@@ -40,15 +44,29 @@ const rCore=v=>v<=0?0:CONFIG.coreMin+(CONFIG.coreMax-CONFIG.coreMin)*Math.sqrt(v
 
 /* ---- camera ---- */
 const BASE=()=>Math.min(W,H)*0.38;
-const sx=n=>W/2+(n.x*BASE()+view.x)*view.k;
-const sy=n=>H/2+(n.y*BASE()+view.y)*view.k;
+const wx=x=>W/2+(x*BASE()+view.x)*view.k;      // world -> screen
+const wy=y=>H/2+(y*BASE()+view.y)*view.k;
+const sx=n=>wx(n.x);
+const sy=n=>wy(n.y);
 function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
   cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
 /* Fit every node inside the *visible* area — the right rail covers part of the
    canvas, so the usable box is inset on that side and the camera centres on it. */
+const MOBILE=()=>matchMedia('(max-width:860px)').matches;
+/* horizontal extent of canvas the rail does not sit on top of */
+const railOpen=()=>!rail.classList.contains('hidden');
+let VIEWL=0, VIEWR=0;
+function viewBox(){
+  VIEWL=0;
+  VIEWR=W-((railOpen()&&!MOBILE())?rail.offsetWidth:0);
+}
 function fit(animate){
-  const railW = rail.classList.contains('hidden') ? 0 : rail.offsetWidth;
-  const padL=34, padR=railW+34, padT=118, padB=104;
+  /* The rail eats width on desktop and height on mobile — inset whichever axis it
+     actually covers, or the map centres itself underneath the panel. */
+  const mob=MOBILE(), open=!rail.classList.contains('hidden');
+  const railW = (open&&!mob) ? rail.offsetWidth  : 0;
+  const railH = (open&&mob)  ? rail.offsetHeight : 0;
+  const padL=34, padR=railW+34, padT=mob?152:118, padB=railH+(mob?28:104);
   const availW=Math.max(200,W-padL-padR), availH=Math.max(200,H-padT-padB);
   /* Bound the node CENTRES and add one modest world-space margin. Reserving each
      node's largest-ever ring over-shrinks the whole map for a handful of mega-caps. */
@@ -84,7 +102,94 @@ const shown=n=>chainOn[n.chain];
 /* Draw order is by rank and never changes — sorting 80 nodes every frame was pure
    waste. Rebuilt only when a chain filter toggles. */
 let ORDER=[];
-function rebuildOrder(){ORDER=D.nodes.filter(shown).sort((a,b)=>b.rank-a.rank);}
+const LABELS=[];                       // placed label boxes, one frame's worth
+/* measureText is hot enough to matter at 60fps; symbol widths never change for a
+   given size, and there are only a handful of sizes. */
+const _tw=new Map();
+function textW(txt,fs){
+  const key=fs+'|'+txt;
+  let w=_tw.get(key);
+  if(w===undefined){w=ctx.measureText(txt).width;_tw.set(key,w);}
+  return w;
+}
+function rebuildOrder(){ORDER=D.nodes.filter(shown).sort((a,b)=>b.rank-a.rank);rebuildHulls();}
+
+/* ---- chain territories ------------------------------------------------------
+   Node positions are frozen, so each chain's hull is solved once in world space
+   and only projected per frame. The hull is what makes a cluster read as a place
+   rather than as a coincidence, and it labels the colours where they are used —
+   the legend says which hue is which chain, the hull says which region is. */
+const HULLS={};
+function convexHull(pts){
+  if(pts.length<3)return pts.slice();
+  const p=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[],up=[];
+  for(const q of p){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop();lo.push(q);}
+  for(let i=p.length-1;i>=0;i--){const q=p[i];
+    while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=0)up.pop();up.push(q);}
+  lo.pop();up.pop();
+  return lo.concat(up);
+}
+function rebuildHulls(){
+  for(const k in HULLS)delete HULLS[k];
+  for(const c of D.chains){
+    if(!chainOn[c])continue;
+    const ns=D.nodes.filter(n=>n.chain===c);
+    if(!ns.length)continue;
+    HULLS[c]={hull:convexHull(ns.map(n=>[n.x,n.y])),n:ns.length,
+              cx:ns.reduce((a,n)=>a+n.x,0)/ns.length,
+              cy:ns.reduce((a,n)=>a+n.y,0)/ns.length};
+  }
+}
+function drawHulls(){
+  const pad=CONFIG.hullPad*Math.min(1.5,view.k);
+  ctx.save();ctx.lineJoin='round';
+  for(const c in HULLS){
+    const h=HULLS[c], col=cc(c).hot, cx=wx(h.cx), cy=wy(h.cy);
+    /* push each vertex out from the centroid so the boundary clears the bubbles */
+    const pts=h.hull.map(p=>{
+      const x=wx(p[0]),y=wy(p[1]),dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)||1;
+      return [x+dx/d*pad,y+dy/d*pad];});
+    ctx.beginPath();
+    if(pts.length<3){ctx.arc(cx,cy,pad*1.7,0,7);}
+    else{
+      const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
+      const st=mid(pts[pts.length-1],pts[0]);
+      ctx.moveTo(st[0],st[1]);
+      for(let i=0;i<pts.length;i++){
+        const cur=pts[i],nx=pts[(i+1)%pts.length],m=mid(cur,nx);
+        ctx.quadraticCurveTo(cur[0],cur[1],m[0],m[1]);   // round the corners off
+      }
+      ctx.closePath();
+    }
+    ctx.globalAlpha=CONFIG.hullFill;ctx.fillStyle=col;ctx.fill();
+    ctx.globalAlpha=CONFIG.hullLine;ctx.strokeStyle=col;ctx.lineWidth=1;
+    ctx.setLineDash([3,6]);ctx.stroke();ctx.setLineDash([]);
+    /* Anchor the label on the far side of the cluster from the map centre. The
+       topmost vertex is often the side facing a neighbour, and the label then
+       reads as belonging to the wrong territory. */
+    const mx0=wx(0),my0=wy(0);
+    let ox=cx-mx0, oy=cy-my0, om=Math.hypot(ox,oy)||1;
+    ox/=om; oy/=om;
+    let far=pts[0],fd=-1;
+    for(const q of pts){const d=(q[0]-cx)*ox+(q[1]-cy)*oy;if(d>fd){fd=d;far=q;}}
+    const fs=clamp(10*Math.min(1.3,view.k),9,13);
+    ctx.font=`700 ${fs}px "JetBrains Mono",monospace`;
+    const txt=`${c.toUpperCase()}  ${h.n}`, tw=textW(txt,fs);
+    const align=ox>0.35?'left':ox<-0.35?'right':'center';
+    let lx=far[0]+ox*9, ly=far[1]+oy*9+(oy<0?-4:11);
+    /* keep it inside the area the rail does not cover, or it is clipped away */
+    const left=align==='left'?lx:align==='right'?lx-tw:lx-tw/2;
+    lx+=clamp(left,VIEWL+6,VIEWR-tw-6)-left;
+    ly=clamp(ly,fs+6,H-10);
+    ctx.globalAlpha=.6;ctx.fillStyle=col;ctx.textAlign=align;
+    ctx.fillText(txt,lx,ly);
+    const l0=align==='left'?lx:align==='right'?lx-tw:lx-tw/2;
+    LABELS.push([l0-3,ly-fs-2,l0+tw+3,ly+5]);
+  }
+  ctx.restore();
+}
 /* Edge selection depends only on (time, hover) — cache it between frames. */
 let EDGE_CACHE={t:-1,h:null,list:[]};
 function edgesFor(t){
@@ -104,17 +209,21 @@ function edgesFor(t){
 }
 
 function draw(t){
-  ctx.fillStyle='#05030B';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=VOID;ctx.fillRect(0,0,W,H);
+  viewBox();
   const now=performance.now(), k=view.k;
   const settled=(now-lastInteract)>MOTION.idleMs;
   GLOW+=((settled?1:0)-GLOW)*(settled?0.10:0.45);
   const blur=(base,mult)=>GLOW<0.03?0:base*(mult===undefined?1:mult)*GLOW;
   /* grid drifts with the camera so panning feels anchored */
-  ctx.save();ctx.strokeStyle='rgba(157,78,221,.055)';ctx.lineWidth=1;
+  ctx.save();ctx.strokeStyle=GRID;ctx.lineWidth=1;
   const gs=54*k, ox=(view.x*k)%gs, oy=(view.y*k)%gs;
   for(let x=ox%gs;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
   for(let y=oy%gs;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   ctx.restore();
+
+  LABELS.length=0;          // hull labels claim their boxes before any node label
+  drawHulls();
 
   const rel=new Set();
   if(hoverId){rel.add(hoverId);
@@ -149,8 +258,8 @@ function draw(t){
       const q=1-p,bx=q*q*x1+2*q*p*mx+p*p*x2,by=q*q*y1+2*q*p*my+p*p*y2;
       ctx.globalAlpha=Math.min(1,alpha*2.5);ctx.fillStyle=glowCol;ctx.shadowBlur=0;
       ctx.beginPath();ctx.arc(bx,by,(1.7+w*.07)*Math.min(1.6,k),0,7);ctx.fill();
-      if(p>0.97){ripples.push({x:x2,y:y2,c:cc(b.chain).hot,t0:now,r:rRing(sample(b.mc,t))*k});
-        if(w>=CONFIG.glitchShared)glitchUntil=now+MOTION.glitchMs;}
+      /* a ripple marks a rotation landing — that one is informative, so it stays */
+      if(p>0.97)ripples.push({x:x2,y:y2,c:cc(b.chain).hot,t0:now,r:rRing(sample(b.mc,t))*k});
     }
   }
   ctx.restore();
@@ -163,7 +272,17 @@ function draw(t){
   ctx.restore();
 
   /* ---------- nodes: biggest drawn last so they read on top ---------- */
-  const budget=CONFIG.labelBudget(k);
+  /* A phone shows the same map in a fraction of the area, so the same label count
+     collides. Both thresholds tighten rather than shrinking the type below legible. */
+  const mob=MOBILE();
+  const budget=Math.round(CONFIG.labelBudget(k)*(mob?0.5:1));
+  const labelMinPx=CONFIG.labelMinPx*(mob?1.7:1);
+  /* Label type size is a function of zoom alone, so the font is set once per frame
+     rather than per node. Setting ctx.font and calling measureText are both costly,
+     and clustering puts far more labels on screen at high zoom than the old
+     scatter did — enough to cost ~6ms/frame while zooming before this. */
+  const labelFs=clamp(10*Math.min(1.35,k),9,14);
+  ctx.font=`600 ${labelFs}px "Chakra Petch",sans-serif`;
   for(const n of ORDER){
     const mc=sample(n.mc,t), usd=sample(n.usd,t), act=sample(n.act,t);
     if(mc<=0&&usd<=0)continue;
@@ -176,7 +295,7 @@ function draw(t){
     const hot=hoverId===n.id;
     /* hue = chain identity; heat drives it toward the reserved accent */
     const col=mix(cc(n.chain).rest,cc(n.chain).hot,Math.min(1,heat*1.25));
-    const core=heat>0.72?mix(cc(n.chain).hot,'#EAFBFF',(heat-0.72)/0.28):col;
+    const core=heat>0.72?mix(cc(n.chain).hot,ACCENT,(heat-0.72)/0.28):col;
     ctx.save();
     ctx.globalAlpha=.92*A;ctx.strokeStyle=col;ctx.lineWidth=(hot?2.3:1.25)*Math.min(1.6,k);
     const bigEnough=R>=CONFIG.glowMinPx;
@@ -189,12 +308,25 @@ function draw(t){
       ctx.beginPath();ctx.arc(x,y,C,0,7);ctx.fill();
       ctx.globalAlpha=.88*A;ctx.beginPath();ctx.arc(x,y,C*.42,0,7);ctx.fill();
     }
-    if(hot||n.rank<budget||R>=CONFIG.labelMinPx){
-      ctx.globalAlpha=Math.min(1,born*dim(n.id)*(hot?1:.5+heat*.5));
-      ctx.shadowBlur=blur(7);ctx.shadowColor='#05030B';ctx.fillStyle=hot?'#EAFBFF':'#E9E4FF';
-      ctx.font=`600 ${clamp(10*Math.min(1.35,k),9,14)}px "Chakra Petch",sans-serif`;
-      ctx.textAlign='center';
-      ctx.fillText(n.sym.slice(0,14),x,(n.sym.charCodeAt(0)%2)?y+R+13:y-R-6);
+    if(hot||n.rank<budget||R>=labelMinPx){
+      const fs=labelFs;
+      const txt=n.sym.slice(0,14);
+      const ly=(n.sym.charCodeAt(0)%2)?y+R+13:y-R-6;
+      /* Clustering packs tokens tight, so unplaced labels used to stack into an
+         unreadable pile. Highest-ranked wins the spot; the rest are dropped and
+         are still reachable by hover, search, or zooming in. */
+      const hw=textW(txt,fs)/2+3, box=[x-hw,ly-fs-2,x+hw,ly+5];
+      let clash=false;
+      if(!hot)for(const b of LABELS){
+        if(box[0]<b[2]&&box[2]>b[0]&&box[1]<b[3]&&box[3]>b[1]){clash=true;break;}
+      }
+      if(!clash){
+        LABELS.push(box);
+        ctx.globalAlpha=Math.min(1,born*dim(n.id)*(hot?1:.5+heat*.5));
+        ctx.shadowBlur=blur(7);ctx.shadowColor=VOID;ctx.fillStyle=hot?ACCENT:INK;
+        ctx.textAlign='center';
+        ctx.fillText(txt,x,ly);
+      }
     }
     ctx.restore();
     n._sx=x;n._sy=y;n._sr=Math.max(R,10);
@@ -209,22 +341,85 @@ function draw(t){
     ctx.drawImage(cv, off*dpr,0,cv.width,cv.height, off,0,W,H);
     ctx.restore();
   }
-  /* scanline tear on a large rotation */
-  if(now<glitchUntil){
-    const f=(glitchUntil-now)/MOTION.glitchMs;
-    for(let i=0;i<4;i++){
-      const yy=Math.random()*H, hh=4+Math.random()*16, dx=(Math.random()-.5)*34*f;
-      ctx.drawImage(cv,0,yy*dpr,cv.width,hh*dpr,dx,yy,W,hh);
-    }
-  }
+  /* The scanline tear that used to fire here displaced whatever it cut through —
+     token labels, chain labels, bubbles — at random moments, which made the map
+     look mis-rendered and made screenshots non-deterministic. Rotations landing
+     are already marked by the ripples above, which move nothing.
+  */
   paintHUD(t);
   paintRail(t);
 }
+/* ===========================================================================
+   DERIVED NARRATIVE — the one sentence a non-specialist came for.
+   Every clause is computed from the payload; none of it is written by hand.
+   Wording tracks the primitive exactly: `usd` is the cohort's value_usd, which
+   carries price drift, so this says "cohort capital", never "bought".
+   ========================================================================= */
+const WINDOW=7;
+const credsEl=document.getElementById('creds'), narrEl=document.getElementById('narrative');
+/* The masthead states the claim, not a mood. Both lines are read from the payload
+   so they cannot drift from research/claims.json. */
+document.getElementById('eyebrow').textContent=
+  `Nansen · ${D.stats.cohort.toLocaleString()} repeat winners · ${D.chains.length} chains`;
+document.getElementById('tag').textContent=
+  `${D.claims.oot.value}% of the following month's winners were already on this map`;
+credsEl.innerHTML=Object.keys(D.claims||{}).map(k=>{
+  const c=D.claims[k];
+  return `<div class="c" title="${c.scope.replace(/"/g,'&quot;')}${c.detail?' ('+c.detail+')':''}">`+
+         `<span class="v">${c.value}${c.unit==='x'?'×':c.unit==='days'?'d':c.unit}</span>`+
+         `<span class="k">${c.label}</span></div>`;}).join('');
+
+let narrCache={t:-99,html:''};
+function narrativeAt(t){
+  const back=Math.max(0,t-WINDOW);
+  const byChain={};
+  for(const n of D.nodes){
+    if(!shown(n))continue;
+    byChain[n.chain]=(byChain[n.chain]||0)+(sample(n.usd,t)-sample(n.usd,back));
+  }
+  const moves=Object.entries(byChain).sort((a,b)=>b[1]-a[1]);
+  if(!moves.length)return '';
+  const [gC,gV]=moves[0], [lC,lV]=moves[moves.length-1];
+
+  /* a position is "new" only if the cohort first took it inside this window */
+  const fresh=D.nodes.filter(n=>shown(n)&&n.first>back&&n.first<=t&&sample(n.usd,t)>0)
+                     .sort((a,b)=>sample(b.usd,t)-sample(a.usd,t))[0];
+
+  let head;
+  if(moves.length>1&&gV>0&&lV<0)
+    head=`cohort capital in <b>${gC}</b> <span class="up">+${fmt(gV)}</span>, `+
+         `<b>${lC}</b> <span class="dn">−${fmt(-lV)}</span>`;
+  else if(gV>0)
+    head=`cohort capital in <b>${gC}</b> <span class="up">+${fmt(gV)}</span>`;
+  else
+    head=`cohort capital in <b>${lC}</b> <span class="dn">−${fmt(-lV)}</span>`;
+
+  let tail='';
+  if(fresh){
+    tail=` · largest new position <b>${fresh.sym}</b> `+
+         `${fmt(sample(fresh.usd,t))} across ${Math.round(sample(fresh.wal,t))} wallets`;
+  }else{
+    const top=edgesFor(t)[0];
+    if(top)tail=` · biggest rotation <b>${NODE[top.e.a].sym}</b> → `+
+                `<b>${NODE[top.e.b].sym}</b>, ${Math.round(top.w)} shared wallets`;
+  }
+  const d=D.days[clamp(Math.round(t),0,LAST)];
+  return `<em>${WINDOW} days to ${d}</em> — ${head}${tail}`;
+}
+function paintNarrative(t){
+  if(Math.abs(narrCache.t-t)<0.35)return;
+  narrCache.t=t;
+  const html=narrativeAt(t);
+  if(html!==narrCache.html){narrCache.html=html;narrEl.innerHTML=html;}
+}
+
 function paintHUD(t){
   const i=clamp(Math.round(t),0,LAST);
   document.getElementById('date').textContent=D.days[i];
   document.getElementById('status').textContent=
-    `${D.stats.cohort} wallets · ${D.nodes.length} tokens · frame ${i+1}/${N} · zoom ${view.k.toFixed(2)}×`;
+    `${D.stats.cohort} wallets · ${D.nodes.length} tokens · frame ${i+1}/${N}`+
+    `${D.stats.built?` · built ${D.stats.built}`:''}`;
+  paintNarrative(t);
   const p=t/LAST*100;
   document.getElementById('headbar').style.left=p+'%';
   document.getElementById('fillbar').style.width=p+'%';
@@ -251,9 +446,33 @@ function frame(){
    5. INTERACTION — pan, zoom, hover, transport
    ========================================================================= */
 let dragging=false,px0=0,py0=0,moved=0;
-cv.addEventListener('pointerdown',e=>{dragging=true;moved=0;poke();px0=e.clientX;py0=e.clientY;
-  view.vx=view.vy=0;cv.setPointerCapture(e.pointerId);cv.classList.add('drag');});
+/* Touch needs two things a mouse gets for free: pinch (there is no wheel) and
+   tap-to-inspect (there is no hover). Pointer events cover both without a
+   separate touch path — PTRS tracks how many are down. */
+const PTRS=new Map(); let pinchD=0;
+const twoPts=()=>{const a=[...PTRS.values()];return a.length>=2?[a[0],a[1]]:null;};
+function pinchMove(){
+  const p=twoPts(); if(!p)return;
+  const d=Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y);
+  if(!pinchD||!d){pinchD=d;return;}
+  const k0=view.tk, k1=clamp(k0*(d/pinchD),CONFIG.zoomMin,CONFIG.zoomMax);
+  const mx=(p[0].x+p[1].x)/2-W/2, my=(p[0].y+p[1].y)/2-H/2;
+  view.tx-=mx*(1/k0-1/k1); view.ty-=my*(1/k0-1/k1);
+  view.tk=k1; pinchD=d; poke(); hideCard();
+}
+cv.addEventListener('pointerdown',e=>{
+  PTRS.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  cv.setPointerCapture(e.pointerId);
+  if(PTRS.size>=2){                       // second finger down: pan becomes pinch
+    dragging=false;cv.classList.remove('drag');
+    const p=twoPts(); pinchD=p?Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y):0;
+    return;
+  }
+  dragging=true;moved=0;poke();px0=e.clientX;py0=e.clientY;
+  view.vx=view.vy=0;cv.classList.add('drag');});
 cv.addEventListener('pointermove',e=>{
+  if(PTRS.has(e.pointerId))PTRS.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(PTRS.size>=2){pinchMove();return;}
   if(dragging){
     const dx=(e.clientX-px0)/view.k, dy=(e.clientY-py0)/view.k;
     view.tx+=dx;view.ty+=dy;view.x+=dx;view.y+=dy;
@@ -262,8 +481,19 @@ cv.addEventListener('pointermove',e=>{
   }
   hoverTest(e.clientX,e.clientY);
 });
-addEventListener('pointerup',()=>{dragging=false;cv.classList.remove('drag');});
-cv.addEventListener('pointerleave',()=>{hoverId=null;hideCard();});
+function endPointer(e){
+  const wasDragging=dragging, tapped=PTRS.size===1&&moved<6;
+  PTRS.delete(e.pointerId);
+  if(PTRS.size<2)pinchD=0;
+  if(PTRS.size===0){
+    dragging=false;cv.classList.remove('drag');
+    /* a tap that did not pan is an inspect gesture — the touch stand-in for hover */
+    if(wasDragging&&tapped&&e.clientX!=null)hoverTest(e.clientX,e.clientY);
+  }
+}
+addEventListener('pointerup',endPointer);
+addEventListener('pointercancel',endPointer);
+cv.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){hoverId=null;hideCard();}});
 cv.addEventListener('wheel',e=>{
   e.preventDefault();poke();
   const k0=view.tk, k1=clamp(k0*(e.deltaY<0?1.14:0.877),CONFIG.zoomMin,CONFIG.zoomMax);
@@ -359,12 +589,22 @@ function toggleRail(){
 }
 rToggle.addEventListener('click',toggleRail);
 
-/* legend doubles as a chain filter */
+/* Chain key, which doubles as the filter. Rendered as buttons so it is reachable by
+   keyboard, and carries each chain's token count — the 40x spread across chains is the
+   finding, so it belongs where the colours are explained. */
 const legend=document.getElementById('legend');
+const chainCount={}; D.nodes.forEach(n=>chainCount[n.chain]=(chainCount[n.chain]||0)+1);
 legend.innerHTML=D.chains.map(c=>
-  `<div class="row on" data-c="${c}"><span>${c}</span><i style="background:${cc(c).hot};box-shadow:0 0 8px ${cc(c).hot}"></i></div>`).join('');
+  `<button type="button" class="row on" data-c="${c}" aria-pressed="true">`+
+  `<i style="background:${cc(c).hot};color:${cc(c).hot}"></i>`+
+  `<span>${c}</span><b style="font-weight:400;opacity:.6">${chainCount[c]||0}</b></button>`).join('');
 legend.querySelectorAll('.row').forEach(r=>r.addEventListener('click',()=>{
-  const c=r.dataset.c;chainOn[c]=!chainOn[c];r.classList.toggle('on',chainOn[c]);
+  const c=r.dataset.c;
+  /* never let the last chain be switched off — an empty map looks like a crash */
+  if(chainOn[c]&&D.chains.filter(x=>chainOn[x]).length<=1)return;
+  chainOn[c]=!chainOn[c];
+  r.classList.toggle('on',chainOn[c]); r.classList.toggle('off',!chainOn[c]);
+  r.setAttribute('aria-pressed',String(chainOn[c]));
   rebuildOrder();EDGE_CACHE.t=-1;fit(true);}));
 
 /* ticks + activity heat strip */
@@ -378,7 +618,7 @@ document.getElementById('ticks').innerHTML=[0,.25,.5,.75,1]
     const tot=D.days.map((_,i)=>D.nodes.reduce((a,n)=>a+(n.act[i]||0),0));
     const mx=Math.max(...tot)||1;
     for(let i=0;i<N;i++){const h=(tot[i]/mx)*28;
-      g.fillStyle=`rgba(157,78,221,${0.2+0.7*tot[i]/mx})`;
+      g.fillStyle=`rgba(${HEAT},${0.2+0.7*tot[i]/mx})`;
       g.fillRect(i/N*c.width,28-h,Math.max(1,c.width/N-1),h);}}
   paint();addEventListener('resize',()=>setTimeout(paint,60));
 })();
@@ -388,10 +628,12 @@ document.getElementById('ticks').innerHTML=[0,.25,.5,.75,1]
    ========================================================================= */
 const board=document.getElementById('board'), ROWS={};
 const panes={rank:document.getElementById('p-rank'),flow:document.getElementById('p-flow'),
-             move:document.getElementById('p-move'),find:document.getElementById('p-find')};
+             move:document.getElementById('p-move'),find:document.getElementById('p-find'),
+             persist:document.getElementById('p-persist')};
 const NOTES={rank:'Cohort capital, reordering as you scrub.',
              flow:'Shared wallets reducing one token while increasing another.',
              move:'7-day change in cohort capital at this frame.',
+             persist:'Repeat-winner rate per chain — the ceiling on this whole method.',
              find:'Find a token and see what it feeds, and what feeds it.'};
 let pane='rank', lastPaint=0;
 function showPane(p){
@@ -476,6 +718,33 @@ function paintMove(t){
   panes.move.querySelectorAll('.mv[data-id]').forEach(el=>
     el.addEventListener('click',()=>focusToken(el.dataset.id)));
 }
+/* ---------- persistence: the ceiling on whether a cohort can work at all ----------
+   Static for a given build, so it renders once rather than on every rail repaint. */
+const FLOOR=4.0;                                  // repeat-winner rate below which coverage collapsed
+let persistPainted=false;
+function paintPersist(){
+  if(persistPainted)return; persistPainted=true;
+  const rows=(D.persistence||[]).slice().sort((a,b)=>b.rate-a.rate);
+  if(!rows.length){
+    panes.persist.innerHTML='<div class="foot">No persistence data in this build.</div>';
+    return;
+  }
+  const top=Math.max(FLOOR*1.25,...rows.map(r=>r.rate));
+  panes.persist.innerHTML=rows.map(r=>{
+    const col=cc(r.chain).hot, live=r.rate>=FLOOR;
+    return `<div class="pz${live?'':' dead'}">
+      <div class="t"><span>${r.chain}</span><b style="color:${live?col:'var(--faint)'}">${r.rate.toFixed(1)}%</b></div>
+      <div class="bar"><i style="width:${Math.max(1.5,r.rate/top*100)}%;background:${col};opacity:${live?1:.4}"></i>
+        <u style="left:${FLOOR/top*100}%"></u></div>
+      <div class="m"><span><b>${r.traders.toLocaleString()}</b> traders · <b>${r.repeat}</b> repeat</span>
+        <span>${r.covtot?`covered <b>${r.cov}/${r.covtot}</b>`:'—'}</span></div>
+    </div>`;}).join('')+
+    `<div class="foot">Share of a chain's winning traders who won <b>more than once</b>.
+     The line marks <b>${FLOOR}%</b> — below it, every chain we tested covered
+     <b>none</b> of the following month's winners. Solana, the busiest memecoin chain,
+     has the <b>least</b> persistent winners: one repeat winner in 499.</div>`;
+}
+
 /* ---------- (1) search ---------- */
 let query='', picked=null;
 const qEl=document.getElementById('q');
@@ -515,6 +784,7 @@ function paintRail(t){
   if(pane==='rank')paintRank(t);
   else if(pane==='flow')paintFlow(t);
   else if(pane==='move')paintMove(t);
+  else if(pane==='persist')paintPersist();
   else paintFind(t);
 }
 

@@ -1,0 +1,70 @@
+{
+  "_comment": "SINGLE SOURCE OF TRUTH for every headline number Cavitation displays or prints.",
+  "_rule": "No number appears in README.md, SUBMISSION.md or on the rendered site unless it is in this file with a provenance entry. make.py reads this to build the payload's stats block; research/NUMBERS.md is the human-readable view of it.",
+  "_regenerate": "python3 research/scripts/out_of_time.py --freeze 2026-08-31 --recurrence 2 --chains robinhood",
+
+  "cohort": {
+    "value": 125,
+    "unit": "wallets",
+    "label": "cohort",
+    "scope": "wallets in the top-100 PnL of >= 2 separate Robinhood-chain winners, frozen 2026-08-31",
+    "source": "research/VALIDATED.md#production-configuration",
+    "script": "research/scripts/out_of_time.py",
+    "verified": "2026-09-18"
+  },
+
+  "map_cohort": {
+    "value": 741,
+    "unit": "wallets",
+    "label": "map cohort",
+    "scope": "wallets clearing 4+ separate winning tokens out of 32,128 traders scanned over the 141-day window. This is what the map draws, not what the coverage figure is measured on.",
+    "source": "data/bubbles80.json#stats.cohort",
+    "script": "make.py --full",
+    "verified": "2026-09-18"
+  },
+
+  "oot": {
+    "value": 75,
+    "unit": "%",
+    "label": "out-of-time coverage",
+    "detail": "6 of 8",
+    "scope": "Cohort frozen 2026-08-31 with zero September information, tested against the 8 Robinhood-chain winners that emerged 1-18 September. Robinhood is the only chain above the ~4% repeat-winner floor; naive cross-chain coverage over the same test is 20%.",
+    "source": "research/VALIDATED.md#production-configuration",
+    "script": "research/scripts/out_of_time.py",
+    "verified": "2026-09-18"
+  },
+
+  "lift": {
+    "value": 23,
+    "unit": "x",
+    "label": "precision lift",
+    "detail": "28.6% vs a 1.24% base rate",
+    "scope": "Leave-one-out over the 48-day window: of 2,813 tokens the cohort touched, the 35 passing >=8 wallets AND >$250k peak contained 10 of the 35 winners. Measures conviction-weighted filtering, not prediction.",
+    "source": "research/VALIDATED.md#2-precision",
+    "script": "research/scripts/coverage.py",
+    "verified": "2026-09-18"
+  },
+
+  "lead": {
+    "value": 16,
+    "unit": "days",
+    "label": "median lead",
+    "detail": "median, left-censored entries removed",
+    "scope": "Days from first cohort entry to price peak, across the 30 covered winners. Raw median 23d; 16d after removing 7 entries censored by the window start. 23/30 entered >=7 days before peak; 0/30 entered after it.",
+    "source": "research/VALIDATED.md#3-timing",
+    "script": "research/scripts/coverage.py",
+    "verified": "2026-09-18"
+  },
+
+  "_pending": {
+    "_comment": "Claims asserted in an earlier draft of README.md / SUBMISSION.md that no artifact in this repository reproduces. They are NOT displayed anywhere until out_of_time.py measures them. Run the command in _regenerate with --recurrence 4 over the 141-day window to confirm or correct.",
+    "oot_full_run": {
+      "asserted": 91,
+      "unit": "%",
+      "detail": "10 of 11",
+      "asserted_scope": "741-wallet cohort, 4+ winning tokens, 141-day window",
+      "status": "UNVERIFIED - no script, run log or table in research/ produces this value",
+      "conflicts_with": "research/VALIDATED.md reports 20% naive / 60% Robinhood-only / 75% production over the 48-day window, and explicitly recommends the 2+ threshold because >=4 shrank coverage to 38%"
+    }
+  }
+}
