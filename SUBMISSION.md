@@ -165,8 +165,8 @@ causation costs nothing and makes every other number more credible.
 | 0–10 | Terminal: `python3 make.py --demo` | Live API, stage-by-stage, credits counted |
 | 10–20 | Site loads, boot sequence resolves | End to end, no crash |
 | 20–40 | Press Play at 2× | 141 days of capital migrating |
-| 40–55 | Hover PONS | $30.5M cohort capital · **Fed by** PRISM, CASHCAT · **Feeding** AI, MEME — green in, red out |
+| 40–55 | Hover the largest node in the Robinhood cluster | Cohort capital, wallets in, **Fed by** / **Feeding** — green in, red out |
 | 55–70 | Flows and Movers tabs | Live rotations and 7-day gainers/bleeders |
 | 70–85 | Search "CASHCAT" → click | Camera flies to it, full rotation card |
-| 85–100 | Persistence panel | 8.6% Robinhood vs 0.2% Solana — the finding |
-| 100–110 | Drag scrubber fast | Datamosh; then `H` for a clean screenshot |
+| 85–100 | **Persist** tab | 8.6% Robinhood vs 0.2% Solana against the 4% floor — the finding |
+| 100–110 | Toggle a chain chip off and back on | The map reframes to the remaining territories; then `H` for a clean screenshot |

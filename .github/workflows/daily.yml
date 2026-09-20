@@ -35,33 +35,8 @@ jobs:
         run: python3 make.py --daily --cap ${{ github.event.inputs.cap || '1400' }}
 
       - name: Verify the build before publishing
-        run: |
-          python3 - <<'PY'
-          import json, os, sys
-          site = "docs/index.html"
-          size = os.path.getsize(site)
-          html = open(site, encoding="utf-8").read()
-          payload = json.load(open("data/bubbles80.json"))
-          checks = {
-              "site is a sane size":        size > 200_000,
-              "payload is embedded":        "const D = {" in html,
-              "nodes present":              len(payload["nodes"]) >= 20,
-              "edges present":              len(payload["edges"]) >= 20,
-              "timeline present":           len(payload["days"]) >= 30,
-              # The masthead and the credibility strip read these. A payload
-              # missing them passes every check above and then throws in the
-              # browser, so the gate has to cover the contract, not just the size.
-              "claims block present":       all(
-                  k in payload.get("claims", {}) for k in ("oot", "lift", "lead")),
-              "stats block present":        "cohort" in payload.get("stats", {}),
-          }
-          for name, ok in checks.items():
-              print(("  ok   " if ok else "  FAIL ") + name)
-          if not all(checks.values()):
-              sys.exit("refusing to publish a broken build")
-          print(f"\n{len(payload['nodes'])} nodes · {len(payload['edges'])} edges · "
-                f"{payload['days'][0]} → {payload['days'][-1]}")
-          PY
+        # Same gate the PR check runs, so the two cannot drift apart.
+        run: python3 scripts/verify_build.py
 
       - name: Commit and publish
         run: |

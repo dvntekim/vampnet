@@ -163,6 +163,23 @@ def claims():
     """
     return json.load(open(os.path.join(ROOT, "research", "claims.json")))
 
+def carried_cohort(fallback):
+    """Cohort size belongs to the last --full run, so carry it forward.
+
+    The daily job refreshes balances for the highest-capital wallets; it never
+    re-runs cohort selection. Counting whoever turns up in the cache measures a
+    different thing — wallets holding one of the cached tokens — which is how a
+    741-wallet cohort silently became 739 on the first scheduled run.
+    """
+    try:
+        prev = json.load(open(D("bubbles80.json")))
+        n = prev.get("stats", {}).get("cohort")
+        if isinstance(n, int) and n > 0:
+            return n
+    except (OSError, ValueError, KeyError):
+        pass
+    return fallback
+
 def stamp(p, ncoh, pool=0):
     """Attach persistence, claims and run stats, then write the payload.
 
@@ -272,7 +289,7 @@ def step_daily(cfg, B):
 
     mc = _daily_mcap(cfg, idx, sym, B)
     p = stamp(build_from_index(idx, sym, mc, top_n=cfg["tokens"], min_peak=cfg["min_peak"]),
-              len(cap), 32128)
+              carried_cohort(len(cap)), 32128)
     log("3/4", f"payload: {len(p['nodes'])} nodes, {len(p['edges'])} edges, {len(p['days'])} days")
     step6_render()
     return p

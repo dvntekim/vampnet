@@ -32,6 +32,14 @@ Python 3.9+, standard library only. No dependencies, no build step, no server.
 `--cap N` sets a hard credit ceiling. Every stage resumes from cache, so an interrupted
 run loses nothing.
 
+### Checks
+
+`.github/workflows/pr.yml` runs on every pull request: every module compiles, the
+headline numbers resolve out of `research/claims.json`, the site rebuilds, `docs/index.html`
+is confirmed in sync with `engine.js` and `build_site.py`, and `scripts/verify_build.py`
+gates the result. The daily job runs that same gate before it publishes, so the two
+cannot drift apart.
+
 ### Daily automation
 
 `.github/workflows/daily.yml` runs `--daily` at 06:10 UTC, verifies the build, and pushes —
@@ -110,6 +118,8 @@ scripts/
   fetch_balances.py    paginated balance fetch
   build_bubbles.py     cohort → nodes, edges, activity, clustered layout
   restamp.py           re-solve layout / refresh claims, no API key, 0 credits
+  verify_build.py      the publish gate — both CI workflows run it
+  measure_perf.js      paste into DevTools to measure frame time on real hardware
 docs/index.html      the published site (generated)
 docs/og.png          social card (regenerate after a visual change)
 research/claims.json every displayed number, with the run that produced it
