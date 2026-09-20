@@ -119,7 +119,7 @@ scripts/
   build_bubbles.py     cohort → nodes, edges, activity, clustered layout
   restamp.py           re-solve layout / refresh claims, no API key, 0 credits
   verify_build.py      the publish gate — both CI workflows run it
-  measure_perf.js      paste into DevTools to measure frame time on real hardware
+  measure_perf.js      paste into DevTools: draw cost and frame interval, kept apart
 docs/index.html      the published site (generated)
 docs/og.png          social card (regenerate after a visual change)
 research/claims.json every displayed number, with the run that produced it

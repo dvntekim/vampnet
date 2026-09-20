@@ -119,9 +119,15 @@ Done in 119s · 261 credits used
 **Performance, measured in-browser:**
 
 Measured on the authors' hardware against the build tagged in git history. The layout and
-hull rendering landed after this table was taken — **re-measure before submitting**.
+hull rendering landed after this table was taken — **re-measure before submitting**, with
+`scripts/measure_perf.js` (paste into the DevTools console).
 
-| | p90 frame time |
+These are **draw cost**: how long `draw()` takes to render a frame. Not frame interval,
+which is floored by the display's refresh rate — 16.7 ms on a 60 Hz panel — and so cannot
+fall below it however fast the renderer gets. The harness reports both, separately, because
+reading an interval as a cost makes a fast renderer look slow.
+
+| | p90 draw cost |
 |---|---:|
 | Idle | **9.0 ms** |
 | Panning | **9.3 ms** |
