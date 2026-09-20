@@ -49,7 +49,24 @@ measurement behind it, not the one that flatters the map.
 | Out-of-time coverage | **75%** (6/8) | Cohort frozen 31 Aug with zero September information, tested against the 8 Robinhood winners that emerged 1–18 Sep. Naive cross-chain coverage on the same test: 20%. | [VALIDATED.md](VALIDATED.md#production-configuration) · `out_of_time.py` |
 | Precision lift | **23×** | 28.6% vs a 1.24% base rate. Leave-one-out: of 2,813 tokens touched, the 35 passing ≥8 wallets AND >$250k peak contained 10 of 35 winners. | [VALIDATED.md](VALIDATED.md#2-precision) · `coverage.py` |
 | Median lead | **16 days** | First cohort entry → price peak, across 30 covered winners. Raw median 23d; 16d after removing 7 left-censored entries. 0/30 entered after the peak. | [VALIDATED.md](VALIDATED.md#3-timing) · `coverage.py` |
+| Map cohort | **741 wallets** | Cleared 4+ separate winning tokens out of 32,128 traders scanned. Verified 2026-09-20 as `len(data/cohort_v2_balances.json)` — the full run writes one entry per cohort wallet. **Not** the 739 in `cache.json.gz`, which counts wallets appearing in the 150 cached tokens. | `make.py --full` |
 | Repeat-winner rate | **8.6% – 0.0%** | Per chain, from 2,808 traders across 34 winning tokens. Robinhood 8.6%, BNB 4.2%, Base 0.8%, Solana 0.2%, Ethereum 0.0%. | [VALIDATED.md](VALIDATED.md#why-trader-persistence-is-an-ecosystem-property) |
+
+### Why 741 and not 708
+
+An earlier draft of `SUBMISSION.md` stated 708 in one paragraph and 741 in another. 741 is
+correct. It is confirmed directly from the full run's own output rather than from prose:
+
+```bash
+python3 -c "import json;print(len(json.load(open('data/cohort_v2_balances.json'))))"
+# 741
+```
+
+`step3_balances` writes exactly one entry per cohort wallet, so that length *is*
+`len(ev) + len(sol)` — the count of wallets that cleared the recurrence threshold. Two
+other numbers float nearby and are not the cohort: **739** (wallets holding one of the 150
+cached tokens) and **40** (the `--demo` preset's `max_wallets` cap, which overwrites
+`cohort_live_v2.json` whenever a demo run happens after a full one).
 
 ## Withdrawn
 

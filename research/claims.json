@@ -2,7 +2,6 @@
   "_comment": "SINGLE SOURCE OF TRUTH for every headline number Cavitation displays or prints.",
   "_rule": "No number appears in README.md, SUBMISSION.md or on the rendered site unless it is in this file with a provenance entry. make.py reads this to build the payload's stats block; research/NUMBERS.md is the human-readable view of it.",
   "_regenerate": "python3 research/scripts/out_of_time.py --freeze 2026-08-31 --recurrence 2 --chains robinhood",
-
   "cohort": {
     "value": 125,
     "unit": "wallets",
@@ -12,17 +11,15 @@
     "script": "research/scripts/out_of_time.py",
     "verified": "2026-09-18"
   },
-
   "map_cohort": {
     "value": 741,
     "unit": "wallets",
     "label": "map cohort",
-    "scope": "wallets clearing 4+ separate winning tokens out of 32,128 traders scanned over the 141-day window. This is what the map draws, not what the coverage figure is measured on.",
-    "source": "data/bubbles80.json#stats.cohort",
+    "scope": "wallets clearing 4+ separate winning tokens out of 32,128 traders scanned over the 141-day window. This is what the map draws, not what the coverage figure is measured on. Distinct from the 739 wallets that appear in the 150-token cache \u2014 counting those is a different quantity and was the source of a drift bug.",
+    "source": "data/cohort_v2_balances.json (one entry per cohort wallet, len() == 741)",
     "script": "make.py --full",
-    "verified": "2026-09-18"
+    "verified": "2026-09-20"
   },
-
   "oot": {
     "value": 75,
     "unit": "%",
@@ -33,7 +30,6 @@
     "script": "research/scripts/out_of_time.py",
     "verified": "2026-09-18"
   },
-
   "lift": {
     "value": 23,
     "unit": "x",
@@ -44,7 +40,6 @@
     "script": "research/scripts/coverage.py",
     "verified": "2026-09-18"
   },
-
   "lead": {
     "value": 16,
     "unit": "days",
@@ -55,7 +50,6 @@
     "script": "research/scripts/coverage.py",
     "verified": "2026-09-18"
   },
-
   "_pending": {
     "_comment": "Claims asserted in an earlier draft of README.md / SUBMISSION.md that no artifact in this repository reproduces. They are NOT displayed anywhere until out_of_time.py measures them. Run the command in _regenerate with --recurrence 4 over the 141-day window to confirm or correct.",
     "oot_full_run": {
