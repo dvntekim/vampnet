@@ -42,16 +42,19 @@ is no product — not a missing chart, no product.**
 > *A use case nobody thought to build. We've seen dashboards.*
 
 **It is not a dashboard.** It is a pannable spatial map where **position itself carries
-meaning**. A four-force layout, solved once at build time, places every token: co-rotation
-springs pull tokens that actually trade into each other adjacent, a weak per-chain anchor
-forms visible territories, and a radial time bias keeps early entries at each cluster's
-core and new ones at its rim. Scrubbing animates only size, glow and edges — nodes never
-move, so the map is a place you learn rather than a chart that reshuffles.
+meaning, and none of it is imposed**. Scrubbing animates only size, glow and edges — nodes
+never move, so the map is a place you learn rather than a chart that reshuffles.
 
-The chain anchor is weak on purpose. A token rotating hard with another chain drifts
-toward it, and **that drift is the finding** — a hard chain boundary would have forbidden
-the single most interesting thing in the data. Clustering cut median edge length 41% and
-p90 57% versus the polar layout it replaced.
+We tried seating the chains around a ring and the data refused it: **92% of flow is inside
+a chain, 87% inside Robinhood alone**, and Solana has structurally zero cross-chain edges
+because an EVM keypair cannot hold a Solana token. A chain ring therefore spends a quarter
+of the canvas on 0.2% of the activity.
+
+So position is solved from the rotations alone. Communities are detected on the rotation
+graph, each is solved independently, packed as a disc, and its members take that slot.
+**Robinhood's 54 tokens resolve into distinct rotation neighbourhoods instead of one red
+mass — and four of the seven span more than one chain.** That is a structure a
+chain-shaped layout could not have represented, let alone discovered.
 
 **Three things that are genuinely new:**
 

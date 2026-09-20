@@ -114,82 +114,88 @@ function textW(txt,fs){
 }
 function rebuildOrder(){ORDER=D.nodes.filter(shown).sort((a,b)=>b.rank-a.rank);rebuildHulls();}
 
-/* ---- chain territories ------------------------------------------------------
-   Node positions are frozen, so each chain's hull is solved once in world space
-   and only projected per frame. The hull is what makes a cluster read as a place
-   rather than as a coincidence, and it labels the colours where they are used —
-   the legend says which hue is which chain, the hull says which region is. */
-const HULLS={};
-function convexHull(pts){
-  if(pts.length<3)return pts.slice();
-  const p=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
-  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
-  const lo=[],up=[];
-  for(const q of p){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop();lo.push(q);}
-  for(let i=p.length-1;i>=0;i--){const q=p[i];
-    while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=0)up.pop();up.push(q);}
-  lo.pop();up.pop();
-  return lo.concat(up);
-}
+/* ---- rotation neighbourhoods -------------------------------------------------
+   Groups follow COMMUNITIES, not chains. Chain is already unambiguous from the
+   colour and the chips; what colour cannot show is which tokens rotate as a
+   pack, and several packs span more than one chain — which a chain-shaped
+   layout could not have revealed.
+
+   Drawn as corner brackets around a bounding box rather than as a filled hull.
+   Communities interleave in space, and overlapping blobs turn into one
+   unreadable shape, whereas brackets state an extent with almost no ink and
+   stay legible stacked three deep. Positions are frozen, so the box is solved
+   once in world space and only projected. */
+const GROUPS={};
 function rebuildHulls(){
-  for(const k in HULLS)delete HULLS[k];
-  for(const c of D.chains){
-    if(!chainOn[c])continue;
-    const ns=D.nodes.filter(n=>n.chain===c);
-    if(!ns.length)continue;
-    HULLS[c]={hull:convexHull(ns.map(n=>[n.x,n.y])),n:ns.length,
-              cx:ns.reduce((a,n)=>a+n.x,0)/ns.length,
-              cy:ns.reduce((a,n)=>a+n.y,0)/ns.length};
+  for(const k in GROUPS)delete GROUPS[k];
+  const by={};
+  for(const n of D.nodes){
+    if(!shown(n)||n.comm==null)continue;
+    (by[n.comm]=by[n.comm]||[]).push(n);
+  }
+  for(const c in by){
+    const ns=by[c];
+    if(ns.length<2)continue;                    // a lone token is not a neighbourhood
+    const cx=ns.reduce((a,n)=>a+n.x,0)/ns.length, cy=ns.reduce((a,n)=>a+n.y,0)/ns.length;
+    /* One stray member would stretch the box across the map and swallow its
+       neighbours, so the frame is fitted to the core and outliers are simply
+       left outside it — they still draw, they are just not claimed. */
+    const dist=ns.map(n=>Math.hypot(n.x-cx,n.y-cy));
+    const mean=dist.reduce((a,d)=>a+d,0)/dist.length || 1;
+    const core=ns.filter((n,i)=>dist[i]<=mean*1.75);
+    const fit=core.length>=2?core:ns;
+    const anchor=ns.reduce((a,n)=>n.peak>a.peak?n:a,ns[0]);
+    const tally={}; for(const n of ns)tally[n.chain]=(tally[n.chain]||0)+1;
+    const chains=Object.keys(tally).sort((a,b)=>tally[b]-tally[a]);
+    GROUPS[c]={n:ns.length,label:anchor.sym.slice(0,12),chain:chains[0],
+               mixed:chains.length>1,
+               x0:Math.min(...fit.map(n=>n.x)), x1:Math.max(...fit.map(n=>n.x)),
+               y0:Math.min(...fit.map(n=>n.y)), y1:Math.max(...fit.map(n=>n.y))};
   }
 }
 function drawHulls(){
-  const pad=CONFIG.hullPad*Math.min(1.5,view.k);
-  ctx.save();ctx.lineJoin='round';
-  for(const c in HULLS){
-    const h=HULLS[c], col=cc(c).hot, cx=wx(h.cx), cy=wy(h.cy);
-    /* push each vertex out from the centroid so the boundary clears the bubbles */
-    const pts=h.hull.map(p=>{
-      const x=wx(p[0]),y=wy(p[1]),dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)||1;
-      return [x+dx/d*pad,y+dy/d*pad];});
+  const pad=CONFIG.groupPad*Math.min(1.5,view.k);
+  const arm=CONFIG.groupArm*Math.min(1.5,view.k);      // bracket arm length
+  const fs=clamp(9.5*Math.min(1.3,view.k),9,12);
+  ctx.save();ctx.lineCap='square';
+  ctx.font=`700 ${fs}px "JetBrains Mono",monospace`;
+  for(const c in GROUPS){
+    const g=GROUPS[c], col=cc(g.chain).hot;
+    const x0=wx(g.x0)-pad, x1=wx(g.x1)+pad, y0=wy(g.y0)-pad, y1=wy(g.y1)+pad;
+    if(x1<0||x0>W||y1<0||y0>H)continue;
+    const w=x1-x0, h=y1-y0, a=Math.min(arm,w*0.34,h*0.34);
+
+    ctx.globalAlpha=CONFIG.groupFill;ctx.fillStyle=col;
+    ctx.fillRect(x0,y0,w,h);
+    ctx.globalAlpha=CONFIG.groupLine;ctx.strokeStyle=col;ctx.lineWidth=1.25;
+    ctx.beginPath();                                   // four corner brackets
+    ctx.moveTo(x0,y0+a); ctx.lineTo(x0,y0); ctx.lineTo(x0+a,y0);
+    ctx.moveTo(x1-a,y0); ctx.lineTo(x1,y0); ctx.lineTo(x1,y0+a);
+    ctx.moveTo(x1,y1-a); ctx.lineTo(x1,y1); ctx.lineTo(x1-a,y1);
+    ctx.moveTo(x0+a,y1); ctx.lineTo(x0,y1); ctx.lineTo(x0,y1-a);
+    ctx.stroke();
+    ctx.globalAlpha=CONFIG.groupLine*0.4;              // hairline edges between them
+    ctx.setLineDash([2,7]);
     ctx.beginPath();
-    if(pts.length<3){ctx.arc(cx,cy,pad*1.7,0,7);}
-    else{
-      const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
-      const st=mid(pts[pts.length-1],pts[0]);
-      ctx.moveTo(st[0],st[1]);
-      for(let i=0;i<pts.length;i++){
-        const cur=pts[i],nx=pts[(i+1)%pts.length],m=mid(cur,nx);
-        ctx.quadraticCurveTo(cur[0],cur[1],m[0],m[1]);   // round the corners off
-      }
-      ctx.closePath();
-    }
-    ctx.globalAlpha=CONFIG.hullFill;ctx.fillStyle=col;ctx.fill();
-    ctx.globalAlpha=CONFIG.hullLine;ctx.strokeStyle=col;ctx.lineWidth=1;
-    ctx.setLineDash([3,6]);ctx.stroke();ctx.setLineDash([]);
-    /* Anchor the label on the far side of the cluster from the map centre. The
-       topmost vertex is often the side facing a neighbour, and the label then
-       reads as belonging to the wrong territory. */
-    const mx0=wx(0),my0=wy(0);
-    let ox=cx-mx0, oy=cy-my0, om=Math.hypot(ox,oy)||1;
-    ox/=om; oy/=om;
-    let far=pts[0],fd=-1;
-    for(const q of pts){const d=(q[0]-cx)*ox+(q[1]-cy)*oy;if(d>fd){fd=d;far=q;}}
-    const fs=clamp(10*Math.min(1.3,view.k),9,13);
-    ctx.font=`700 ${fs}px "JetBrains Mono",monospace`;
-    const txt=`${c.toUpperCase()}  ${h.n}`, tw=textW(txt,fs);
-    const align=ox>0.35?'left':ox<-0.35?'right':'center';
-    let lx=far[0]+ox*9, ly=far[1]+oy*9+(oy<0?-4:11);
-    /* keep it inside the area the rail does not cover, or it is clipped away */
-    const left=align==='left'?lx:align==='right'?lx-tw:lx-tw/2;
-    lx+=clamp(left,VIEWL+6,VIEWR-tw-6)-left;
-    ly=clamp(ly,fs+6,H-10);
-    ctx.globalAlpha=.6;ctx.fillStyle=col;ctx.textAlign=align;
+    ctx.moveTo(x0+a,y0);ctx.lineTo(x1-a,y0);
+    ctx.moveTo(x0+a,y1);ctx.lineTo(x1-a,y1);
+    ctx.moveTo(x0,y0+a);ctx.lineTo(x0,y1-a);
+    ctx.moveTo(x1,y0+a);ctx.lineTo(x1,y1-a);
+    ctx.stroke();ctx.setLineDash([]);
+
+    /* label sits on the top rule, left-aligned, in the HUD manner */
+    const txt=`${g.label} ·${g.n}${g.mixed?' ⁑':''}`, tw=textW(txt,fs);
+    const lx=clamp(x0+a+6,VIEWL+6,Math.max(VIEWL+6,VIEWR-tw-6));
+    const ly=clamp(y0-5,fs+4,H-8);
+    ctx.globalAlpha=1;ctx.fillStyle=VOID;
+    ctx.fillRect(lx-4,ly-fs+1,tw+8,fs+3);              // knock the rule out behind it
+    ctx.globalAlpha=.85;ctx.fillStyle=col;ctx.textAlign='left';
     ctx.fillText(txt,lx,ly);
-    const l0=align==='left'?lx:align==='right'?lx-tw:lx-tw/2;
-    LABELS.push([l0-3,ly-fs-2,l0+tw+3,ly+5]);
+    LABELS.push([lx-4,ly-fs-1,lx+tw+4,ly+4]);
   }
   ctx.restore();
 }
+
 /* Edge selection depends only on (time, hover) — cache it between frames. */
 let EDGE_CACHE={t:-1,h:null,list:[]};
 function edgesFor(t){

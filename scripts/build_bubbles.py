@@ -228,101 +228,181 @@ def build_from_index(idx, sym, mcser, top_n=26, min_peak=30000):
 # =============================================================================
 # LAYOUT — where a token sits, and why.
 #
-# The previous layout was a polar scatter: angle = chain, radius = first-entry
-# percentile. It made position meaningful but decoupled it from connectivity, so
-# two tokens sharing forty wallets could sit on opposite rims and the rotation
-# between them was drawn as a long arc across empty space. Long arcs are noise;
-# the eye cannot follow them, and the map read as scattered rather than as flow.
+# Two earlier attempts imposed a structure the data does not have. The first was
+# a polar scatter (angle = chain, radius = first-entry), which decoupled position
+# from connectivity so a rotation between two tokens was drawn as a long arc
+# across empty space. The second seated chains around a ring, which was worse in
+# a specific way: 92% of flow is INSIDE a chain and 87% is inside Robinhood
+# alone, so a ring spends a quarter of the canvas on Solana — six tokens, 0.2% of
+# flow and, because an EVM keypair cannot hold a Solana token, structurally zero
+# cross-chain edges — while compressing everything worth looking at into a blob.
 #
-# This clusters instead. Four forces, in order of strength:
+# So nothing is imposed now. Position is solved from the rotations alone:
 #
-#   springs   tokens that actually rotate into each other are pulled adjacent,
-#             so a rotation becomes a SHORT link between neighbours
-#   repulsion radius-aware, so big bubbles do not overlap but small ones pack
-#   anchor    each chain gets a weak centroid — territories form, but a token
-#             rotating hard with another chain can drift toward it, and that
-#             drift is itself information a hard wedge would have forbidden
-#   time      inside a cluster, early entries sit toward the core and new ones
-#             toward the rim, preserving "centre is conviction" as a local read
+#   springs    tokens that rotate into each other are pulled together
+#   repulsion  radius-aware, so big caps do not overlap and small ones pack
+#   collision  a hard floor on centre distance
+#   gravity    a weak pull to the origin, which keeps disconnected tokens from
+#              drifting off rather than placing anything
+#   cohesion   a weak pull toward the centre of the node's own community
+#   separation a push between whole communities, so their hulls do not merge
+#
+# Cohesion is not a taxonomy being imposed. The communities are detected from
+# these same edges; left alone they interleave spatially, so the groups the data
+# contains are real but unreadable. This separates them on screen without
+# deciding what they are.
+#
+# Chains then separate themselves, because their edges do. That grouping becomes
+# something the map demonstrates rather than something it asserts, and the space
+# each chain occupies is the space its activity earns.
+#
+# Communities are detected on the same graph and carried to the front-end as
+# n["comm"], which draws the hulls. Robinhood's 54 tokens resolve into several
+# rotation neighbourhoods instead of one red mass — and the neighbourhoods are
+# not chain-pure, which is the part a chain-shaped layout could never have shown.
 #
 # Positions are solved here, at build time, and frozen. The renderer never moves
-# a node: that is what keeps scrubbing at 60fps and makes the map a place you
-# learn rather than a chart that reshuffles.
+# a node: that is what keeps scrubbing at 60fps.
 # =============================================================================
 SPRING, REPEL, COLLIDE = 0.85, 0.00040, 1.08
-ANCHOR, CORE, SPREAD   = 0.80, 0.11, 0.30
 STEP, ITERS, MAXSTEP   = 0.42, 700, 0.030
-CLEARANCE              = 1.45   # gap between adjacent chain territories
-# The anchor force is soft, so solved positions overshoot their target ring;
-# CLEARANCE is sized for where nodes actually land, not where they are aimed.
-# A hub with thirty rotations accumulates thirty spring forces and, unchecked,
-# overshoots the whole map in one step and never recovers. Two standard guards:
-# mass grows with degree, and no node may move more than MAXSTEP per iteration.
-MASS_PER_DEGREE        = 0.35
+MASS_PER_DEGREE        = 0.35    # hubs are heavy, so they anchor rather than fling
+RESOLUTION             = 1.0     # community granularity; higher splits more
+META_GAP               = 1.22    # clearance between neighbourhood discs
+BRIDGE                 = 0.16    # how far a cross-neighbourhood rotation may pull a token
 
 
-def _chain_ring(nodes, link, chains):
-    """Seat chains around a circle so the strongest inter-chain rotation lands on
-    adjacent seats — the dominant direction of flow then reads around the ring
-    instead of criss-crossing it."""
-    between = collections.Counter()
+def communities(n_count, link, resolution=RESOLUTION, seed=7, iters=40):
+    """Louvain local-moving, one phase. Returns a community id per node.
+
+    Label propagation was tried first and is not usable here: on a subgraph as
+    dense as Robinhood's it converges to a single label, returning one community
+    of 74 and telling you nothing. Modularity with a resolution term splits it.
+    """
+    rnd = random.Random(seed)
+    adj = collections.defaultdict(list)
+    degree = collections.defaultdict(float)
     for a, b, w in link:
-        ca, cb = nodes[a]["chain"], nodes[b]["chain"]
-        if ca != cb:
-            between[frozenset((ca, cb))] += w
-    order, rest = [chains[0]], set(chains[1:])
-    while rest:
-        last = order[-1]
-        nxt = max(rest, key=lambda c: between.get(frozenset((last, c)), 0.0))
-        order.append(nxt)
-        rest.discard(nxt)
+        adj[a].append((b, w)); adj[b].append((a, w))
+        degree[a] += w; degree[b] += w
+    m2 = sum(w for _, _, w in link) * 2 or 1.0
 
-    size = {c: sum(1 for n in nodes if n["chain"] == c) for c in order}
-    # sqrt, not linear: one chain holding two thirds of the tokens would otherwise
-    # leave the other three without enough arc to be legible
-    tot = sum(math.sqrt(size[c]) for c in order)
-    mean = sum(size.values()) / len(order)
+    com = list(range(n_count))
+    tot = {i: degree[i] for i in range(n_count)}
+    order = list(range(n_count))
+    for _ in range(iters):
+        rnd.shuffle(order)
+        moved = False
+        for i in order:
+            if not adj[i]:
+                continue
+            here = com[i]
+            tot[here] -= degree[i]
+            into = collections.Counter()
+            for j, w in adj[i]:
+                into[com[j]] += w
+            best, best_gain = here, into.get(here, 0.0) - resolution * tot.get(here, 0.0) * degree[i] / m2
+            for c, w in into.items():
+                gain = w - resolution * tot.get(c, 0.0) * degree[i] / m2
+                if gain > best_gain + 1e-12:
+                    best, best_gain = c, gain
+            com[i] = best
+            tot[best] = tot.get(best, 0.0) + degree[i]
+            moved = moved or best != here
+        if not moved:
+            break
 
-    # A cluster's internal spread has to track its population, or 54 tokens pack
-    # into the same disc as 5: one becomes an unreadable knot, the other a balloon
-    # of empty hull. Everything downstream is normalised, so only ratios matter.
-    spread = {c: math.sqrt(size[c] / mean) for c in order}
-
-    theta, cursor = {}, 0.0
-    for c in order:
-        frac = math.sqrt(size[c]) / tot
-        theta[c] = 2 * math.pi * (cursor + frac / 2)
-        cursor += frac
-
-    if len(order) == 1:
-        return {order[0]: (0.0, 0.0)}, spread
-
-    # Seat the ring wide enough that no two adjacent clusters can touch, solved
-    # from the chord between them rather than guessed at.
-    ring = 0.0
-    for i, c in enumerate(order):
-        d = order[(i + 1) % len(order)]
-        dth = (theta[d] - theta[c]) % (2 * math.pi)
-        half = math.sin(min(dth, 2 * math.pi - dth) / 2) or 1e-6
-        reach = (spread[c] + spread[d]) * (CORE + SPREAD) * CLEARANCE
-        ring = max(ring, reach / (2 * half))
-
-    return {c: (math.cos(theta[c]) * ring, math.sin(theta[c]) * ring) for c in order}, spread
+    size = collections.Counter(com)
+    rank = {c: i for i, (c, _) in enumerate(size.most_common())}
+    return [rank[c] for c in com]
 
 
-def layout(nodes, edges, aspect=0.80, iters=ITERS, seed=7):
-    """Solve node positions in place. Sets n["x"], n["y"] on every node."""
+def _relax(idx, link, rad, iters, seed, centre_pull=0.0, anchor=None):
+    """Spring/repulsion/collision solve over the node indices in `idx`.
+
+    Returns {node index: (x, y)} in local coordinates. Used twice: once inside
+    each neighbourhood, and once over the neighbourhoods themselves.
+    """
+    rnd = random.Random(seed)
+    n = len(idx)
+    if n == 0:
+        return {}
+    if n == 1:
+        return {idx[0]: (0.0, 0.0)}
+    at = {v: i for i, v in enumerate(idx)}
+    ln = [(at[a], at[b], w) for a, b, w in link if a in at and b in at]
+    r = [rad[v] for v in idx]
+
+    mass = [1.0] * n
+    for a, b, w in ln:
+        mass[a] += MASS_PER_DEGREE * w
+        mass[b] += MASS_PER_DEGREE * w
+
+    px, py = [0.0] * n, [0.0] * n
+    for i in range(n):
+        a = rnd.random() * 2 * math.pi
+        d = (0.15 + 0.5 * math.sqrt(rnd.random())) * math.sqrt(n)
+        px[i], py[i] = math.cos(a) * d * 0.12, math.sin(a) * d * 0.12
+
+    for it in range(iters):
+        cool = (1 - it / iters) ** 1.2
+        fx, fy = [0.0] * n, [0.0] * n
+        for a, b, w in ln:
+            dx, dy = px[b] - px[a], py[b] - py[a]
+            d = math.hypot(dx, dy) or 1e-6
+            rest = (r[a] + r[b]) * 1.9 + 0.02
+            f = SPRING * w * (d - rest)
+            ux, uy = dx / d, dy / d
+            fx[a] += f * ux; fy[a] += f * uy
+            fx[b] -= f * ux; fy[b] -= f * uy
+        for i in range(n):
+            for j in range(i + 1, n):
+                dx, dy = px[j] - px[i], py[j] - py[i]
+                d2 = dx * dx + dy * dy
+                d = math.sqrt(d2) or 1e-6
+                ux, uy = dx / d, dy / d
+                rep = REPEL * (r[i] + r[j]) / max(d2, 0.0016)
+                fx[i] -= rep * ux; fy[i] -= rep * uy
+                fx[j] += rep * ux; fy[j] += rep * uy
+                floor = (r[i] + r[j]) * COLLIDE
+                if d < floor:
+                    push = (floor - d) * 0.5
+                    fx[i] -= push * ux; fy[i] -= push * uy
+                    fx[j] += push * ux; fy[j] += push * uy
+        if centre_pull:
+            for i in range(n):
+                fx[i] -= centre_pull * px[i]
+                fy[i] -= centre_pull * py[i]
+        lim = MAXSTEP * cool
+        for i in range(n):
+            dx = fx[i] / mass[i] * STEP * cool
+            dy = fy[i] / mass[i] * STEP * cool
+            m = math.hypot(dx, dy)
+            if m > lim:
+                dx, dy = dx / m * lim, dy / m * lim
+            px[i] += dx; py[i] += dy
+    cx = sum(px) / n; cy = sum(py) / n
+    return {idx[i]: (px[i] - cx, py[i] - cy) for i in range(n)}
+
+
+def layout(nodes, edges, aspect=0.80, seed=7):
+    """Solve node positions in place. Sets n["x"], n["y"], n["comm"].
+
+    Compound, in two phases. A single global solve finds the neighbourhoods but
+    leaves them interleaved in space — topologically right, visually unreadable,
+    with four frames stacked over the same patch of canvas. So the
+    neighbourhoods are placed first, as a graph of their own where each is a
+    disc the size of its contents, and each one's members are then solved inside
+    its slot. Separation is then a property of the construction rather than
+    something a force has to win.
+    """
     n_count = len(nodes)
     if not n_count:
         return
-    rnd = random.Random(seed)                      # seeded: builds are reproducible
     ix = {n["id"]: i for i, n in enumerate(nodes)}
-
-    # what the eye actually has to fit is the market-cap ring, not the node centre
     mcmax = max((max(n["mc"]) for n in nodes), default=1) or 1
     rad = [0.030 + 0.070 * math.sqrt((max(n["mc"]) or 0) / mcmax) for n in nodes]
 
-    # edge strength, log-compressed so one enormous pair cannot dominate the solve
     link = []
     for e in edges:
         a, b = ix.get(e["a"]), ix.get(e["b"])
@@ -335,77 +415,88 @@ def layout(nodes, edges, aspect=0.80, iters=ITERS, seed=7):
         top = max(l[2] for l in link) or 1.0
         link = [(a, b, w / top) for a, b, w in link]
 
-    chains = sorted({n["chain"] for n in nodes},
-                    key=lambda c: -sum(1 for n in nodes if n["chain"] == c))
-    anchor, spread = _chain_ring(nodes, link, chains)
+    comm = communities(n_count, link)
+    for i, c in enumerate(comm):
+        nodes[i]["comm"] = c
+    members = collections.defaultdict(list)
+    for i, c in enumerate(comm):
+        members[c].append(i)
 
-    # first-entry percentile -> where inside its cluster a token wants to sit
-    tpct = [0.0] * n_count
-    for r, i in enumerate(sorted(range(n_count), key=lambda i: nodes[i]["first"])):
-        tpct[i] = r / max(1, n_count - 1)
+    # ---- phase 1: solve each neighbourhood on its own, in local coordinates ----
+    local, radius = {}, {}
+    for c, mem in members.items():
+        local[c] = _relax(mem, link, rad, iters=ITERS, seed=seed + c, centre_pull=0.10)
+        radius[c] = max((math.hypot(x, y) + rad[i] for i, (x, y) in local[c].items()),
+                        default=0.1)
 
-    # heavier nodes are the well-connected ones, so hubs anchor the clusters
-    # instead of being flung around by the tokens hanging off them
-    mass = [1.0] * n_count
+    # ---- phase 2: pack the neighbourhoods as discs -----------------------------
+    # A force solve was tried here and is the wrong tool for eight items: the
+    # meta weights are on a different scale to the node weights, so the springs
+    # and the degree-mass swamped the repulsion and every neighbourhood settled
+    # on the origin. Packing is deterministic, cannot overlap by construction,
+    # and lets the most strongly connected pair be seated next to each other.
+    keys = sorted(members, key=lambda c: -len(members[c]))
+    between = collections.Counter()
     for a, b, w in link:
-        mass[a] += MASS_PER_DEGREE * w
-        mass[b] += MASS_PER_DEGREE * w
+        ca, cb = comm[a], comm[b]
+        if ca != cb:
+            between[(min(ca, cb), max(ca, cb))] += w
+    affinity = lambda a, b: between.get((min(a, b), max(a, b)), 0.0)
 
+    centre = {keys[0]: (0.0, 0.0)}
+    for c in keys[1:]:
+        need = radius[c] * META_GAP
+        best, best_score = None, None
+        step = radius[keys[0]] * 0.25 or 0.05
+        probe = need + radius[keys[0]] * META_GAP
+        while best is None and probe < 40 * step:
+            for k in range(72):
+                th = 2 * math.pi * k / 72
+                x, y = math.cos(th) * probe, math.sin(th) * probe
+                if any(math.hypot(x - ox, y - oy) < need + radius[o] * META_GAP
+                       for o, (ox, oy) in centre.items()):
+                    continue
+                # among free spots, sit closest to whatever this pack trades with
+                pull = sum(affinity(c, o) / (math.hypot(x - ox, y - oy) or 1e-6)
+                           for o, (ox, oy) in centre.items())
+                score = pull - 0.04 * math.hypot(x, y)
+                if best_score is None or score > best_score:
+                    best, best_score = (x, y), score
+            probe += step
+        centre[c] = best or (probe, 0.0)
+
+    # ---- phase 3: members take their neighbourhood's slot ----------------------
     px, py = [0.0] * n_count, [0.0] * n_count
+    for c, mem in members.items():
+        ox, oy = centre.get(c, (0.0, 0.0))
+        for i in mem:
+            lx, ly = local[c][i]
+            px[i], py[i] = ox + lx, oy + ly
+
+    # A token that rotates with another neighbourhood is allowed to drift toward
+    # it. That drift is the bridge between two packs and is worth seeing, so it
+    # is bounded rather than forbidden.
+    drift = collections.defaultdict(lambda: [0.0, 0.0])
+    for a, b, w in link:
+        if comm[a] == comm[b]:
+            continue
+        for i, j in ((a, b), (b, a)):
+            ox, oy = centre.get(comm[i], (0.0, 0.0))
+            tx, ty = centre.get(comm[j], (0.0, 0.0))
+            drift[i][0] += (tx - ox) * BRIDGE * w
+            drift[i][1] += (ty - oy) * BRIDGE * w
+    for i, (dx, dy) in drift.items():
+        # bounded by the node's own neighbourhood: a bridge should lean a token
+        # toward its other pack, not tear it out and stretch the frame across
+        # the map behind it
+        cap = radius[comm[i]] * 0.85
+        m = math.hypot(dx, dy)
+        if m > cap:
+            dx, dy = dx / m * cap, dy / m * cap
+        px[i] += dx; py[i] += dy
+
+    cx = sum(px) / n_count; cy = sum(py) / n_count
+    span = max(max(abs(px[i] - cx), abs(py[i] - cy)) for i in range(n_count)) or 1.0
     for i, n in enumerate(nodes):
-        ax, ay = anchor[n["chain"]]
-        a = rnd.random() * 2 * math.pi
-        r = (0.05 + 0.20 * math.sqrt(rnd.random())) * spread[n["chain"]]
-        px[i], py[i] = ax + math.cos(a) * r, ay + math.sin(a) * r
-
-    for it in range(iters):
-        cool = (1 - it / iters) ** 1.2
-        fx, fy = [0.0] * n_count, [0.0] * n_count
-
-        for a, b, w in link:                       # co-rotation springs
-            dx, dy = px[b] - px[a], py[b] - py[a]
-            d = math.hypot(dx, dy) or 1e-6
-            rest = (rad[a] + rad[b]) * 1.9 + 0.02
-            f = SPRING * w * (d - rest)
-            ux, uy = dx / d, dy / d
-            fx[a] += f * ux; fy[a] += f * uy
-            fx[b] -= f * ux; fy[b] -= f * uy
-
-        for i in range(n_count):                   # repulsion + hard collision
-            for j in range(i + 1, n_count):
-                dx, dy = px[j] - px[i], py[j] - py[i]
-                d2 = dx * dx + dy * dy
-                d = math.sqrt(d2) or 1e-6
-                ux, uy = dx / d, dy / d
-                rep = REPEL * (rad[i] + rad[j]) / max(d2, 0.0016)
-                fx[i] -= rep * ux; fy[i] -= rep * uy
-                fx[j] += rep * ux; fy[j] += rep * uy
-                floor = (rad[i] + rad[j]) * COLLIDE
-                if d < floor:
-                    push = (floor - d) * 0.5
-                    fx[i] -= push * ux; fy[i] -= push * uy
-                    fx[j] += push * ux; fy[j] += push * uy
-
-        for i, n in enumerate(nodes):              # chain anchor + time-in-cluster
-            ax, ay = anchor[n["chain"]]
-            dx, dy = px[i] - ax, py[i] - ay
-            d = math.hypot(dx, dy) or 1e-6
-            want = (CORE + SPREAD * tpct[i]) * spread[n["chain"]]
-            f = ANCHOR * (d - want)
-            fx[i] -= f * dx / d; fy[i] -= f * dy / d
-
-        lim = MAXSTEP * cool
-        for i in range(n_count):
-            dx = fx[i] / mass[i] * STEP * cool
-            dy = fy[i] / mass[i] * STEP * cool
-            m = math.hypot(dx, dy)
-            if m > lim:                            # hard displacement clamp
-                dx, dy = dx / m * lim, dy / m * lim
-            px[i] += dx
-            py[i] += dy
-
-    span = max(max(abs(px[i]), abs(py[i])) for i in range(n_count)) or 1.0
-    for i, n in enumerate(nodes):
-        n["x"] = round(px[i] / span, 4)
-        n["y"] = round(py[i] / span * aspect, 4)   # flatten to suit a wide viewport
-
+        n["x"] = round((px[i] - cx) / span, 4)
+        n["y"] = round((py[i] - cy) / span * aspect, 4)

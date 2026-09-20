@@ -140,16 +140,25 @@ research/            how the claims were validated — see research/README.md
 constant sits in three blocks at the top of the generated HTML — `THEME`, `MOTION`,
 `CONFIG` — so the design can be rewritten without touching the pipeline.
 
-**Position carries meaning.** Nodes never move between frames, which is what keeps it at
-60fps. Placement is solved once at build time by a four-force layout: co-rotation springs
-pull tokens that actually trade into each other adjacent, radius-aware repulsion stops the
-big caps colliding, a weak per-chain anchor forms visible territories, and a radial time
-bias keeps early entries toward each cluster's core and new ones at its rim.
+**Position carries meaning, and nothing about it is imposed.** Nodes never move between
+frames, which is what keeps it at 60fps. Placement is solved once at build time from the
+rotations alone — no chain grid, no time axis.
 
-The chain anchor is deliberately weak: a token rotating hard with another chain drifts
-toward it, and that drift is information a hard boundary would have hidden. Clustering cut
-median edge length by 41% and p90 by 57% against the previous polar layout — a rotation is
-now a short link between neighbours instead of an arc across empty canvas.
+Seating chains around a ring was tried and was wrong for this data: **92% of flow is inside
+a chain and 87% is inside Robinhood alone**, so a ring spent a quarter of the canvas on
+Solana — six tokens, 0.2% of flow and structurally zero cross-chain edges, because an EVM
+keypair cannot hold a Solana token — while compressing everything worth looking at into a
+blob.
+
+So the map is built the other way round. Communities are detected on the rotation graph
+(Louvain; label propagation collapses Robinhood's dense subgraph into one useless blob of
+74). Each neighbourhood is solved on its own, then packed as a disc, then its members take
+that slot — separation is a property of the construction rather than something a force has
+to win. A token that rotates with another neighbourhood drifts toward it, bounded, because
+that bridge is worth seeing.
+
+Chains then separate themselves, because their edges do. Several neighbourhoods are **not**
+chain-pure, which is the part a chain-shaped layout could never have shown.
 
 ---
 
@@ -161,6 +170,9 @@ now a short link between neighbours instead of an arc across empty canvas.
 | `space` · `←` `→` | play-pause · step one day |
 | `R` · `H` · `/` | reframe · hide panel · search |
 | hover | market cap, cohort capital, wallets, **Fed by / Feeding** |
+
+Frames on the map are rotation neighbourhoods, labelled by their biggest token; `⁑` marks
+one that spans more than one chain.
 
 Right rail: **Rank** · **Flows** (what is draining into what) · **Movers** (7-day gainers
 and bleeders) · **Search**. Repeat-winner rate per chain — the ceiling on whether a cohort
