@@ -193,7 +193,8 @@ def stamp(p, ncoh, pool=0):
     C = claims()
     p["claims"] = {k: {"value": C[k]["value"], "unit": C[k]["unit"],
                        "label": C[k]["label"], "detail": C[k].get("detail", ""),
-                       "scope": C[k]["scope"], "verified": C[k]["verified"]}
+                       "scope": C[k]["scope"], "verified": C[k]["verified"],
+                       "headline": C[k].get("headline", "")}
                    for k in ("oot", "lift", "lead")}
     p["stats"] = {"cohort": ncoh, "pool": pool, "tokens": len(p["nodes"]),
                   "built": dt.date.today().isoformat(),

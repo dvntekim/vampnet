@@ -61,7 +61,8 @@ then tested against September's winners.
 
 | | |
 |---|---|
-| **75%** | of unseen September winners were already held by the frozen cohort (6 of 8, Robinhood chain) |
+| **78%** | of unseen September winners were already held by the frozen cohort (7 of 9, Robinhood chain) |
+| **42%** | the same run counted naively across all four chains (10 of 24) — coverage tracks repeat-winner rate |
 | **23×** | precision lift — 28.6% of high-conviction holdings became 200%+ winners vs a 1.24% base rate |
 | **~16 days** | median lead from first cohort entry to price peak |
 
@@ -70,10 +71,16 @@ run that produced it, and `make.py` reads that file rather than hardcoding anyth
 site cannot drift from the research. [`research/NUMBERS.md`](research/NUMBERS.md) is the
 readable version, including the one claim we withdrew for lack of an artifact.
 
-**The coverage figure and the map are measured on different cohorts** (125 wallets at 2+ on
-Robinhood vs the 741 at 4+ that the map draws), because that is the configuration the
-out-of-time test was run on. Reconciling them on one run is a single command, documented in
-[NUMBERS.md](research/NUMBERS.md#two-configurations-and-why-they-differ).
+**Both figures come from one frozen-cohort run at the map's own 4+ threshold**
+(`research/out_of_time_2026-08-31.json`). The cohort was built only from winners that
+resolved before 31 August and tested on the 24 that first appeared afterwards — 21 tokens
+already winning before the freeze were excluded, so nothing the cohort could have learned
+from the test period reaches it.
+
+We lead with the Robinhood number because the product's central finding is that coverage is
+ecosystem-bound, and we print the naive number beside it so the 78% is never read as a
+cross-chain result. Per chain: robinhood 7/9, base 2/3, bnb 1/6, **solana 0/6** — which is
+what an 0.2% repeat-winner rate predicts.
 
 **What it does not claim: that flow magnitude predicts returns.** We tested that four ways
 — token-level correlation, five alternative signal formulations, a cross-chain recurrence
@@ -168,7 +175,7 @@ carrying its measurement scope on hover.
   keypair cannot hold a Solana token, and the method requires the same wallet on both
   sides. Solana ↔ Solana edges do appear, but the Solana cohort is 33 wallets because
   Solana's repeat-winner rate is 0.2%.
-- **Coverage is ecosystem-bound.** 75% on Robinhood; near zero on chains below ~4%
+- **Coverage is ecosystem-bound.** 78% on Robinhood; near zero on chains below ~4%
   repeat-winner rate. The Persistence panel reports this per chain rather than hiding it.
 - **Co-rotation is not causation.** Edges are labelled "Fed by / Feeding" on shared-wallet
   evidence. Direct A→B attribution was tested and is not reliable.

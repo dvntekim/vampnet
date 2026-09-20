@@ -16,18 +16,34 @@ conflating them is the single easiest way to misread this project.
 | | **The map** | **The validation** |
 |---|---|---|
 | What it is | What the site renders | What the coverage claim is measured on |
-| Window | 141 days (May 1 – Sep 18) | 48 days, frozen Aug 31 |
-| Cohort | 741 wallets, **4+** winning tokens | 125 wallets, **2+** winning tokens |
-| Chains | robinhood, bnb, base, solana | robinhood only |
+| Window | 141 days (May 3 – Sep 20) | 30-day train, 20-day test, frozen Aug 31 |
+| Threshold | **4+** winning tokens | **4+** winning tokens — same |
+| Cohort | 741 wallets | 15 wallets |
+| Chains | robinhood, bnb, base, solana | robinhood, bnb, base, solana — same |
 | Built by | `make.py --full` | `research/scripts/out_of_time.py` |
 
-The map runs at 4+ because a stricter cohort produces a denser, more legible graph.
-The coverage claim is measured at 2+ on Robinhood because that is the configuration the
-out-of-time test was actually run on, and because the pilot found that tightening the
-threshold *shrinks* coverage faster than it raises quality (38% at 4+ vs 75% at 2+ —
-see [VALIDATED.md](VALIDATED.md#design-rule-breadth-beats-strictness)).
+They now differ in **one** dimension: window length. The threshold and the chain set match
+the map exactly, which is what makes the coverage figure a statement about this product
+rather than about a different configuration that happened to score well.
 
-**These have not yet been reconciled on the same run.** Doing so is one command:
+**Reconciled on 2026-09-20.** The coverage figure is now measured at the map's own 4+
+threshold, so the two configurations differ only in window length:
+
+```
+train 2026-08-01 → 2026-08-31   75 winning tokens
+test  2026-09-01 → 2026-09-20   24 new winners (21 pre-freeze winners excluded)
+pool  5,399 traders → frozen cohort 15 wallets (>= 4 TRAIN winners)
+
+COVERAGE 10/24 = 42%      robinhood 7/9 · base 2/3 · bnb 1/6 · solana 0/6
+515 credits
+```
+
+The frozen cohort is 15 wallets rather than 741 because one month is a short window in
+which to win four separate tokens; the map earns 741 at the same threshold over 141 days.
+That makes this a test of the *method* at the map's threshold, not of the map's exact
+cohort — a distinction worth stating before anyone else does.
+
+Re-run at any freeze date with:
 
 ```bash
 python3 research/scripts/out_of_time.py \
@@ -36,17 +52,14 @@ python3 research/scripts/out_of_time.py \
 python3 make.py --build
 ```
 
-That measures the shipped map's own cohort out-of-time and rewrites `claims.json` with
-whatever it finds. Until it is run, the displayed coverage figure is the one that has a
-measurement behind it, not the one that flatters the map.
-
 ---
 
 ## The claims
 
 | Claim | Value | Scope | Provenance |
 |---|---:|---|---|
-| Out-of-time coverage | **75%** (6/8) | Cohort frozen 31 Aug with zero September information, tested against the 8 Robinhood winners that emerged 1–18 Sep. Naive cross-chain coverage on the same test: 20%. | [VALIDATED.md](VALIDATED.md#production-configuration) · `out_of_time.py` |
+| Out-of-time coverage | **78%** (7/9) | Cohort frozen 31 Aug, 4+ threshold, tested on the 9 Robinhood winners that first appeared 1–20 Sep. | [out_of_time_2026-08-31.json](out_of_time_2026-08-31.json) |
+| Naive coverage | **42%** (10/24) | The same run across all four chains, unscoped. Printed beside the 78% so it is never read as cross-chain. | [out_of_time_2026-08-31.json](out_of_time_2026-08-31.json) |
 | Precision lift | **23×** | 28.6% vs a 1.24% base rate. Leave-one-out: of 2,813 tokens touched, the 35 passing ≥8 wallets AND >$250k peak contained 10 of 35 winners. | [VALIDATED.md](VALIDATED.md#2-precision) · `coverage.py` |
 | Median lead | **16 days** | First cohort entry → price peak, across 30 covered winners. Raw median 23d; 16d after removing 7 left-censored entries. 0/30 entered after the peak. | [VALIDATED.md](VALIDATED.md#3-timing) · `coverage.py` |
 | Map cohort | **741 wallets** | Cleared 4+ separate winning tokens out of 32,128 traders scanned. Verified 2026-09-20 as `len(data/cohort_v2_balances.json)` — the full run writes one entry per cohort wallet. **Not** the 739 in `cache.json.gz`, which counts wallets appearing in the 150 cached tokens. | `make.py --full` |
@@ -72,7 +85,7 @@ cached tokens) and **40** (the `--demo` preset's `max_wallets` cap, which overwr
 
 | Claim | Why |
 |---|---|
-| ~~91% out-of-time coverage (10 of 11)~~ | No script, run log or table in this repository reproduces it. It existed only as a hardcoded literal in `make.py`. The same repository's out-of-time test reports 20% naive / 60% Robinhood-only / 75% production over the 48-day window. Recorded under `_pending` in `claims.json` and re-testable with the command above. |
+| ~~91% out-of-time coverage (10 of 11)~~ | No script, run log or table reproduced it; it existed only as a hardcoded literal in `make.py`. **Superseded by measurement** on 2026-09-20: the same protocol at the same 4+ threshold returns 78% on Robinhood and 42% naive. The claim is no longer merely unverified — it has been tested and replaced. |
 
 ## What is still not claimed
 

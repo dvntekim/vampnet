@@ -65,10 +65,14 @@ wallet won **26**. That 741 is the cohort the map draws, recorded in the shipped
 
 | Chain | Repeat-winner rate | Out-of-time coverage |
 |---|---:|---:|
-| Robinhood | **8.6%** | **60%** |
-| BNB | 4.2% | 0% |
-| Base | 0.8% | 0% |
-| Solana | **0.2%** | 0% |
+| Robinhood | **8.6%** | **78%** (7/9) |
+| BNB | 4.2% | 17% (1/6) |
+| Base | 0.8% | 67% (2/3) |
+| Solana | **0.2%** | **0%** (0/6) |
+
+Coverage measured 2026-09-20 on a cohort frozen 31 August, at the same 4+ threshold the map
+uses — `research/scripts/out_of_time.py`, artifact in `research/out_of_time_2026-08-31.json`.
+Base's 2/3 is three tokens and should not be read as a rate.
 
 Counter-intuitively, **Solana — the busiest memecoin chain — has the least persistent
 winners** (one repeat winner in 499). That number is the hard ceiling on whether *any*
@@ -118,24 +122,26 @@ Done in 119s · 261 credits used
 
 **Performance, measured in-browser:**
 
-Measured on the authors' hardware against the build tagged in git history. The layout and
-hull rendering landed after this table was taken — **re-measure before submitting**, with
-`scripts/measure_perf.js` (paste into the DevTools console).
+Measured 2026-09-20 on an Apple silicon MacBook Pro with `scripts/measure_perf.js`, against
+the clustered-layout build.
 
-These are **draw cost**: how long `draw()` takes to render a frame. Not frame interval,
-which is floored by the display's refresh rate — 16.7 ms on a 60 Hz panel — and so cannot
-fall below it however fast the renderer gets. The harness reports both, separately, because
-reading an interval as a cost makes a fast renderer look slow.
+These are **draw cost** — how long `draw()` takes to render one frame. Deliberately not
+frame interval, which is floored by the display's refresh rate and so cannot fall below it
+however fast the renderer gets; on the same run the interval sat at 19–33 ms purely because
+macOS idles the panel down to ~45 Hz when nothing demands more. The harness reports both
+columns separately, because reading an interval as a cost makes a fast renderer look slow.
 
 | | p90 draw cost |
 |---|---:|
-| Idle | **9.0 ms** |
-| Panning | **9.3 ms** |
-| Zooming | **9.3 ms** |
+| Idle | **0.4 ms** |
+| Panning | **0.4 ms** |
+| Zooming | **1.0 ms** |
+| Playing | **0.5 ms** |
 
-60fps with headroom, and panning costs the same as standing still — because node draw order
-and edge selection are cached rather than rebuilt per frame (that change alone took it from
-28.6 ms to 9.0 ms). Zero console errors.
+**Panning costs exactly what standing still costs** — 0.4 ms either way — because node draw
+order and edge selection are cached rather than rebuilt per frame. Rendering is roughly 2%
+of a 60 Hz frame budget even while scrubbing, so the map is limited by the display, not by
+the renderer. Zero console errors.
 
 ---
 

@@ -361,8 +361,11 @@ const credsEl=document.getElementById('creds'), narrEl=document.getElementById('
    so they cannot drift from research/claims.json. */
 document.getElementById('eyebrow').textContent=
   `Nansen · ${D.stats.cohort.toLocaleString()} repeat winners · ${D.chains.length} chains`;
-document.getElementById('tag').textContent=
-  `${D.claims.oot.value}% of the following month's winners were already on this map`;
+/* The headline sentence lives with the number in claims.json, so its scope cannot
+   drift from what was measured — an unscoped "78% of winners" would read as a
+   cross-chain result, which is not what the run says. */
+document.getElementById('tag').textContent = D.claims.oot.headline ||
+  `${D.claims.oot.value}% of the next month's winners were already on this map`;
 credsEl.innerHTML=Object.keys(D.claims||{}).map(k=>{
   const c=D.claims[k];
   return `<div class="c" title="${c.scope.replace(/"/g,'&quot;')}${c.detail?' ('+c.detail+')':''}">`+
