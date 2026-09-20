@@ -48,6 +48,12 @@ jobs:
               "nodes present":              len(payload["nodes"]) >= 20,
               "edges present":              len(payload["edges"]) >= 20,
               "timeline present":           len(payload["days"]) >= 30,
+              # The masthead and the credibility strip read these. A payload
+              # missing them passes every check above and then throws in the
+              # browser, so the gate has to cover the contract, not just the size.
+              "claims block present":       all(
+                  k in payload.get("claims", {}) for k in ("oot", "lift", "lead")),
+              "stats block present":        "cohort" in payload.get("stats", {}),
           }
           for name, ok in checks.items():
               print(("  ok   " if ok else "  FAIL ") + name)
