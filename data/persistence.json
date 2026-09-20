@@ -1,0 +1,65 @@
+[
+  {
+    "chain": "robinhood",
+    "traders": 994,
+    "repeat": 85,
+    "rate": 8.6,
+    "maxcoins": 7,
+    "cov": 3,
+    "covtot": 5
+  },
+  {
+    "chain": "bnb",
+    "traders": 879,
+    "repeat": 37,
+    "rate": 4.2,
+    "maxcoins": 5,
+    "cov": 0,
+    "covtot": 3
+  },
+  {
+    "chain": "base",
+    "traders": 236,
+    "repeat": 2,
+    "rate": 0.8,
+    "maxcoins": 2,
+    "cov": 0,
+    "covtot": 2
+  },
+  {
+    "chain": "solana",
+    "traders": 499,
+    "repeat": 1,
+    "rate": 0.2,
+    "maxcoins": 2,
+    "cov": 0,
+    "covtot": 4
+  },
+  {
+    "chain": "ethereum",
+    "traders": 200,
+    "repeat": 0,
+    "rate": 0.0,
+    "maxcoins": 1,
+    "cov": 0,
+    "covtot": 1
+  },
+  {
+    "chain": "polygon",
+    "traders": 139,
+    "repeat": 0,
+    "rate": 0.0,
+    "maxcoins": 1,
+    "cov": 0,
+    "covtot": 0
+  },
+  {
+    "chain": "arbitrum",
+    "traders": 100,
+    "repeat": 0,
+    "rate": 0.0,
+    "maxcoins": 1,
+    "cov": 0,
+    "covtot": 0
+  }
+]

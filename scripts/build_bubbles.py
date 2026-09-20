@@ -29,10 +29,15 @@ def index(bal):
     return idx, sym
 
 def build(bal, mcser, top_n=26, min_peak=30000):
+    """Build the front-end payload from raw balance rows."""
+    idx, sym = index(bal)
+    return _build(idx, sym, mcser, top_n, min_peak)
+
+
+def _build(idx, sym, mcser, top_n=26, min_peak=30000):
     # base58 (solana) addresses are case-sensitive while our index lowercases
     # everything for EVM; match the mcap series case-insensitively so both work.
     mcser={k.lower():v for k,v in mcser.items()}
-    idx,sym=index(bal)
     days=sorted({d for k in idx for d in idx[k]})
     stats={}
     for key,bd in idx.items():
@@ -119,6 +124,105 @@ def build(bal, mcser, top_n=26, min_peak=30000):
               key=lambda c:-sum(1 for n in nodes if n["chain"]==c))
     layout(nodes, edges)
     return {"days":days,"nodes":nodes,"edges":edges,"chains":CH}
+
+
+# ---------------------------------------------------------------------------
+# Compact cache
+#
+# The raw balance rows are ~660 MB, which cannot live in git or a CI cache.
+# Only the tokens we actually draw need per-wallet detail, and re-encoding
+# against day/wallet index tables removes the repeated address strings:
+# 661 MB -> 4.6 MB (1.4 MB gzipped).
+# ---------------------------------------------------------------------------
+import gzip
+
+CACHE_TOKENS = 150      # tokens kept with per-wallet detail
+
+
+def _sig(x):
+    """Amounts are stored verbatim.
+
+    Rounding here is a false economy: fixed decimals zero out tokens held in tiny
+    unit amounts, and even 10 significant figures perturbs the delta-vs-zero test
+    that edge detection depends on, silently changing 8 of 520 edges. Exact storage
+    costs 0.7 MB and guarantees the cached path matches the raw path byte for byte.
+    """
+    return x
+
+
+def save_cache(idx, sym, path, top_n=CACHE_TOKENS):
+    """Write the compact cache. `idx`/`sym` come from index()."""
+    peak = {}
+    for key, by_day in idx.items():
+        if clean(sym.get(key, "")) in STABLE | EQUITY:
+            continue
+        peak[key] = max((sum(v[1] for v in ws.values()) for ws in by_day.values()), default=0)
+    keep = sorted(peak, key=lambda k: -peak[k])[:top_n]
+
+    days = sorted({d for k in keep for d in idx[k]})
+    day_ix = {d: i for i, d in enumerate(days)}
+    wallets = sorted({w for k in keep for ws in idx[k].values() for w in ws})
+    wal_ix = {w: i for i, w in enumerate(wallets)}
+
+    tokens = {}
+    for key in keep:
+        rows = []
+        for day, holders in sorted(idx[key].items()):
+            for wallet, (amount, usd) in holders.items():
+                rows.append([day_ix[day], wal_ix[wallet], amount, usd])
+        tokens[f"{key[0]}:{key[1]}"] = {"sym": sym[key], "chain": key[0], "rows": rows}
+
+    blob = json.dumps({"days": days, "wallets": wallets, "tokens": tokens},
+                      separators=(",", ":")).encode()
+    with gzip.open(path, "wb", compresslevel=9) as fh:
+        fh.write(blob)
+    return len(days), len(wallets), len(tokens)
+
+
+def load_cache(path):
+    """Read the compact cache back into the (idx, sym) shape build() expects."""
+    with gzip.open(path, "rb") as fh:
+        blob = json.loads(fh.read())
+    days, wallets = blob["days"], blob["wallets"]
+    idx = collections.defaultdict(lambda: collections.defaultdict(dict))
+    sym = {}
+    for token_id, rec in blob["tokens"].items():
+        chain, address = token_id.split(":", 1)
+        key = (chain, address)
+        sym[key] = rec["sym"]
+        for day_i, wal_i, amount, usd in rec["rows"]:
+            idx[key][days[day_i]][wallets[wal_i]] = (amount, usd)
+    return idx, sym
+
+
+def merge_rows(idx, sym, wallet, chain, rows):
+    """Fold freshly fetched balance rows for one wallet-chain into an index."""
+    for r in rows:
+        amount = r.get("token_amount") or 0
+        if amount <= 0:
+            continue
+        key = (chain, (r.get("token_address") or "").lower())
+        idx[key][r["block_timestamp"][:10]][wallet] = (amount, r.get("value_usd") or 0)
+        sym.setdefault(key, r.get("token_symbol") or key[1][:8])
+
+
+def trim_window(idx, keep_days):
+    """Drop frames older than the rolling window so the cache stays bounded."""
+    days = sorted({d for k in idx for d in idx[k]})
+    if len(days) <= keep_days:
+        return days
+    cutoff = days[-keep_days]
+    for key in list(idx):
+        for day in [d for d in idx[key] if d < cutoff]:
+            del idx[key][day]
+        if not idx[key]:
+            del idx[key]
+    return sorted({d for k in idx for d in idx[k]})
+
+
+def build_from_index(idx, sym, mcser, top_n=26, min_peak=30000):
+    """build() without the raw-rows step, for the cached/daily path."""
+    return _build(idx, sym, mcser, top_n, min_peak)
 
 
 # =============================================================================
@@ -304,3 +408,4 @@ def layout(nodes, edges, aspect=0.80, iters=ITERS, seed=7):
     for i, n in enumerate(nodes):
         n["x"] = round(px[i] / span, 4)
         n["y"] = round(py[i] / span * aspect, 4)   # flatten to suit a wide viewport
+

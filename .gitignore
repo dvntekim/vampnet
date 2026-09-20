@@ -2,9 +2,13 @@
 .env
 .env.*
 
-# API cache — regenerate with `python3 make.py --demo` or `--full`.
-# cohort_v2_balances.json alone is ~662 MB; none of it belongs in git.
-data/
+# API cache. The raw balance rows are ~660 MB and never belong in git; the
+# compact cache below is what the daily job carries forward between runs.
+data/*
+!data/cache.json.gz
+!data/mcap_deep.json
+!data/bubbles80.json
+!data/persistence.json
 
 # python
 __pycache__/
