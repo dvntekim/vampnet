@@ -1,0 +1,71 @@
+name: Daily refresh
+
+# 06:10 UTC daily. GitHub's scheduler is best-effort and runs late under load,
+# which is fine here: the pipeline is incremental and catches up whenever it runs.
+on:
+  schedule:
+    - cron: "10 6 * * *"
+  workflow_dispatch:
+    inputs:
+      cap:
+        description: "Credit ceiling for this run"
+        default: "1400"
+
+concurrency:
+  group: daily-refresh
+  cancel-in-progress: false      # never interrupt a run mid-fetch
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90          # a full run takes ~35 min
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"   # stdlib only; no dependencies to install
+
+      - name: Refresh from the Nansen API
+        env:
+          NANSEN_API_KEY: ${{ secrets.NANSEN_API_KEY }}
+        run: python3 make.py --daily --cap ${{ github.event.inputs.cap || '1400' }}
+
+      - name: Verify the build before publishing
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          site = "docs/index.html"
+          size = os.path.getsize(site)
+          html = open(site, encoding="utf-8").read()
+          payload = json.load(open("data/bubbles80.json"))
+          checks = {
+              "site is a sane size":        size > 200_000,
+              "payload is embedded":        "const D = {" in html,
+              "nodes present":              len(payload["nodes"]) >= 20,
+              "edges present":              len(payload["edges"]) >= 20,
+              "timeline present":           len(payload["days"]) >= 30,
+          }
+          for name, ok in checks.items():
+              print(("  ok   " if ok else "  FAIL ") + name)
+          if not all(checks.values()):
+              sys.exit("refusing to publish a broken build")
+          print(f"\n{len(payload['nodes'])} nodes · {len(payload['edges'])} edges · "
+                f"{payload['days'][0]} → {payload['days'][-1]}")
+          PY
+
+      - name: Commit and publish
+        run: |
+          git config user.name  "cavitation-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/cache.json.gz data/mcap_deep.json data/bubbles80.json docs/index.html
+          if git diff --cached --quiet; then
+            echo "No change — nothing to publish."
+            exit 0
+          fi
+          LATEST=$(python3 -c "import json;print(json.load(open('data/bubbles80.json'))['days'][-1])")
+          git commit -m "Daily refresh: data through $LATEST"
+          git push

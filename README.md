@@ -26,10 +26,23 @@ Python 3.9+, standard library only. No dependencies, no build step, no server.
 |---|---|---|---|
 | `make.py --demo` | 30-day window, 40-wallet cohort | ~2 min | ~260 |
 | `make.py --full` | 141 days, 741 wallets | ~2 h | ~6,000 |
+| `make.py --daily` | Incremental: top 300 wallets, new days only | ~35 min | ~1,200 |
 | `make.py --build` | Re-render from cache | ~5 s | **0** |
 
 `--cap N` sets a hard credit ceiling. Every stage resumes from cache, so an interrupted
 run loses nothing.
+
+### Daily automation
+
+`.github/workflows/daily.yml` runs `--daily` at 06:10 UTC, verifies the build, and pushes —
+GitHub Pages then redeploys itself. Add your key as the repository secret
+`NANSEN_API_KEY` (Settings → Secrets and variables → Actions) and it runs unattended.
+
+The job refreshes the 300 wallets holding **88% of cohort capital** rather than all 741,
+which is what keeps it affordable; a `--full` run sweeps the long tail when you want it.
+Continuity between runs comes from `data/cache.json.gz` — a 2.6 MB compaction of the
+660 MB of raw balance rows, holding per-wallet detail for the 150 tokens that matter.
+It rebuilds a byte-identical payload to the raw path.
 
 ---
 
