@@ -1,0 +1,57 @@
+name: PR checks
+
+# Nothing used to validate a pull request here — the only workflow ran on a
+# schedule. That meant a change could reach main having never been built.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:                       # supersede in-flight runs on a new push
+  group: pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"   # stdlib only; nothing to install
+
+      - name: Every module compiles
+        run: python3 -m py_compile make.py build_site.py scripts/*.py research/scripts/*.py
+
+      - name: Headline numbers resolve from research/claims.json
+        run: |
+          python3 - <<'PY'
+          import json
+          c = json.load(open("research/claims.json"))
+          for k in ("oot", "lift", "lead", "cohort"):
+              e = c[k]
+              assert e["value"], f"{k} has no value"
+              assert e["scope"], f"{k} has no scope"
+              assert e["verified"], f"{k} has no verified date"
+              print(f"  ok   {k} = {e['value']}{e['unit']}  ({e['source']})")
+          PY
+
+      - name: Site rebuilds from the committed payload
+        run: python3 build_site.py
+
+      - name: docs/index.html is in sync with its sources
+        # Catches the easy mistake: editing engine.js or build_site.py and
+        # committing without re-rendering, so the published page lags the code.
+        run: |
+          if ! git diff --exit-code --stat docs/index.html; then
+            echo "::error::docs/index.html is stale — run 'python3 build_site.py' and commit the result"
+            exit 1
+          fi
+
+      - name: Verify the build
+        run: python3 scripts/verify_build.py

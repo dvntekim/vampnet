@@ -154,13 +154,57 @@ def step4_mcap(cfg, bal, B):
     json.dump(mc, open(MC,"w"), separators=(",",":"))
     return mc
 
+def claims():
+    """Headline numbers come from research/claims.json — never from a literal here.
+
+    Every displayed number carries the scope it was measured under, so the site
+    cannot drift from the research that backs it. Regenerate the coverage figure
+    with research/scripts/out_of_time.py --write-claims.
+    """
+    return json.load(open(os.path.join(ROOT, "research", "claims.json")))
+
+def carried_cohort(fallback):
+    """Cohort size belongs to the last --full run, so carry it forward.
+
+    The daily job refreshes balances for the highest-capital wallets; it never
+    re-runs cohort selection. Counting whoever turns up in the cache measures a
+    different thing — wallets holding one of the cached tokens — which is how a
+    741-wallet cohort silently became 739 on the first scheduled run.
+    """
+    try:
+        prev = json.load(open(D("bubbles80.json")))
+        n = prev.get("stats", {}).get("cohort")
+        if isinstance(n, int) and n > 0:
+            return n
+    except (OSError, ValueError, KeyError):
+        pass
+    return fallback
+
+def stamp(p, ncoh, pool=0):
+    """Attach persistence, claims and run stats, then write the payload.
+
+    Every path that produces a payload goes through here. The daily job and the
+    batch builds each used to stamp their own stats block, which is how the
+    hardcoded numbers this file used to carry drifted apart from the research in
+    the first place — and how the front-end lost the `claims` block it reads.
+    """
+    pf = D("persistence.json")
+    p["persistence"] = json.load(open(pf)) if os.path.exists(pf) else []
+    C = claims()
+    p["claims"] = {k: {"value": C[k]["value"], "unit": C[k]["unit"],
+                       "label": C[k]["label"], "detail": C[k].get("detail", ""),
+                       "scope": C[k]["scope"], "verified": C[k]["verified"]}
+                   for k in ("oot", "lift", "lead")}
+    p["stats"] = {"cohort": ncoh, "pool": pool, "tokens": len(p["nodes"]),
+                  "built": dt.date.today().isoformat(),
+                  "oot": C["oot"]["value"], "lift": C["lift"]["value"],
+                  "lead": C["lead"]["value"]}
+    json.dump(p, open(D("bubbles80.json"), "w"), separators=(",", ":"))
+    return p
+
 def step5_payload(cfg, bal, mc, ncoh):
-    p = build(bal, mc, top_n=cfg["tokens"], min_peak=cfg["min_peak"])
-    pf=D("persistence.json")
-    p["persistence"]=json.load(open(pf)) if os.path.exists(pf) else []
-    p["stats"]={"cohort":ncoh,"oot":91,"lift":23,"lead":16,
-                "pool":cfg.get("pool",0),"tokens":len(p["nodes"])}
-    json.dump(p, open(D("bubbles80.json"),"w"), separators=(",",":"))
+    p = stamp(build(bal, mc, top_n=cfg["tokens"], min_peak=cfg["min_peak"]),
+              ncoh, cfg.get("pool", 0))
     log("5/6", f"payload: {len(p['nodes'])} nodes, {len(p['edges'])} edges, {len(p['days'])} days")
     return p
 
@@ -244,12 +288,8 @@ def step_daily(cfg, B):
     save_cache(idx, sym, CACHE())
 
     mc = _daily_mcap(cfg, idx, sym, B)
-    p = build_from_index(idx, sym, mc, top_n=cfg["tokens"], min_peak=cfg["min_peak"])
-    pf = D("persistence.json")
-    p["persistence"] = json.load(open(pf)) if os.path.exists(pf) else []
-    p["stats"] = {"cohort": len(cap), "oot": 91, "lift": 23, "lead": 16,
-                  "pool": 32128, "tokens": len(p["nodes"])}
-    json.dump(p, open(D("bubbles80.json"), "w"), separators=(",", ":"))
+    p = stamp(build_from_index(idx, sym, mc, top_n=cfg["tokens"], min_peak=cfg["min_peak"]),
+              carried_cohort(len(cap)), 32128)
     log("3/4", f"payload: {len(p['nodes'])} nodes, {len(p['edges'])} edges, {len(p['days'])} days")
     step6_render()
     return p

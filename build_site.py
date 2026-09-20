@@ -1,18 +1,54 @@
 import json
-HEAD = r'''<title>Cavitation</title>
+SITE  = "https://dvnykim.github.io/cavitation/"
+BLURB = ("Where proven onchain capital moves next. 741 wallets that each won four or more "
+         "separate memecoins, mapped across 80 tokens and 141 days — built entirely on the "
+         "Nansen API.")
+
+HEAD = r'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cavitation — the onchain attention map</title>
+<meta name="description" content="__BLURB__">
+<meta name="author" content="Cavitation">
+<link rel="canonical" href="__SITE__">
+
+<!-- Social cards. The product is visual, so the preview image is the pitch. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cavitation">
+<meta property="og:url" content="__SITE__">
+<meta property="og:title" content="Cavitation — the onchain attention map">
+<meta property="og:description" content="__BLURB__">
+<meta property="og:image" content="__SITE__og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A dark network map of memecoin tokens clustered by chain, sized by market cap, with capital rotations drawn as glowing links between them.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cavitation — the onchain attention map">
+<meta name="twitter:description" content="__BLURB__">
+<meta name="twitter:image" content="__SITE__og.png">
+<meta name="theme-color" content="#0A0C11">
+
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
 <style>
 /* ===========================================================================
    1. THEME — every colour and surface. Edit freely; no data/logic depends on it.
    ========================================================================= */
 :root{
-  --void:#05030B; --panel:rgba(10,7,22,.82); --panel-solid:#0A0716;
-  --line:#241A45; --line-hot:#4B2F7A;
-  --cyan:#2DE2E6; --magenta:#FF3864; --yellow:#F9C80E; --violet:#9D4EDD; --green:#57E389;
-  --accent:#EAFBFF;                    /* RESERVED: capital moving right now */
-  --ink:#E9E4FF; --muted:#8A7FB8; --faint:#4E4472;
-  --in:#57E389;                        /* inbound  / fed by   */
-  --out:#FF3864;                       /* outbound / feeding  */
+  /* Off-black, not pure black. The map's whole job is dormant-vs-active contrast,
+     and #000 leaves no room below the dimmest signal. */
+  --void:#0A0C11; --panel:rgba(14,17,24,.86); --panel-solid:#0E1118;
+  --line:#1E2430; --line-hot:#35425C;
+  --grid:rgba(124,144,178,.05);        /* camera-anchored grid */
+  --heat:124,144,178;                  /* timeline activity strip (r,g,b) */
+  --cyan:#3DD6D0; --magenta:#FF4D6A; --yellow:#E8B33C; --violet:#8B7FE8; --green:#4FD98A;
+  --accent:#F2F7FF;                    /* RESERVED: capital moving right now */
+  --ink:#DDE4EF; --muted:#8290A8; --faint:#4A5568;
+  --in:#4FD98A;                        /* inbound  / fed by   */
+  --out:#FF4D6A;                       /* outbound / feeding  */
+  --hover:#161C27; --field:#0C0F16; --tab-on:#151B27;
+  --hair:rgba(30,36,48,.75);           /* list separators */
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden;background:var(--void)}
@@ -20,10 +56,11 @@ body{font-family:"Chakra Petch",system-ui,sans-serif;color:var(--ink);
      -webkit-font-smoothing:antialiased;line-height:1.45}
 canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
 canvas.drag{cursor:grabbing}
-/* scanline + vignette — decoration only */
+/* Vignette only. The scanline overlay that used to sit here cost contrast on a
+   canvas whose entire signal is dormant-vs-active brightness, and it read as a
+   filter rather than as an instrument. */
 #fx{position:fixed;inset:0;pointer-events:none;z-index:4;
-  background:repeating-linear-gradient(0deg,rgba(45,226,230,.018) 0 1px,transparent 1px 3px),
-             radial-gradient(ellipse at 50% 45%,transparent 52%,rgba(5,3,11,.82) 100%)}
+  background:radial-gradient(ellipse at 50% 45%,transparent 62%,rgba(6,8,12,.55) 100%)}
 .mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
 
 /* ---- overlays ---- */
@@ -31,19 +68,42 @@ canvas.drag{cursor:grabbing}
 #brand{top:18px;left:20px}
 #brand .eyebrow{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.3em;
   text-transform:uppercase;color:var(--cyan);opacity:.8}
+/* No chromatic aberration on the wordmark — at a glance it read as a rendering
+   fault rather than a choice. The accent letterform carries the identity instead. */
 #brand h1{font-size:38px;font-weight:700;letter-spacing:.012em;margin:1px 0 0;line-height:1;
-  text-shadow:-1.5px 0 var(--magenta),1.5px 0 var(--cyan)}
-#brand h1 .d{color:var(--violet)}
+  color:var(--ink)}
+#brand h1 .d{color:var(--magenta)}
 #brand .tag{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.2em;
   text-transform:uppercase;color:var(--faint);margin-top:5px}
-#brand .date{font-family:"JetBrains Mono",monospace;font-size:19px;margin-top:7px;color:var(--ink);
-  text-shadow:0 0 16px rgba(157,78,221,.55)}
-#legend{top:18px;right:20px;display:flex;flex-direction:column;gap:5px;align-items:flex-end;
-  font-family:"JetBrains Mono",monospace;font-size:9.5px;color:var(--muted)}
-#legend .row{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;opacity:.55;
-  transition:opacity .15s}
-#legend .row.on{opacity:1;color:var(--ink)}
-#legend i{width:8px;height:8px;border-radius:50%}
+#brand .date{font-family:"JetBrains Mono",monospace;font-size:19px;margin-top:7px;color:var(--ink)}
+/* Chain key + filter. Lives inside #brand so it is never occluded by the rail and
+   survives the panel being hidden — it is the only key to what the colours mean. */
+#legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;max-width:320px}
+#legend .row{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
+  font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);background:var(--panel);
+  border:1px solid var(--line);padding:4px 8px;border-radius:2px;transition:.15s}
+#legend .row:hover{border-color:var(--line-hot);color:var(--ink)}
+#legend .row.off{opacity:.38}
+#legend .row.off i{background:transparent!important;box-shadow:none!important}
+#legend .row.on{color:var(--ink)}
+#legend .row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#legend i{width:7px;height:7px;border-radius:50%;flex:none;border:1px solid currentColor}
+/* ---- derived narrative: the sentence a non-specialist came for ----
+   Regenerated from the payload on every frame; never written by hand. */
+#narrative{top:20px;left:372px;right:452px;text-align:center;pointer-events:none;
+  font-size:13px;color:var(--muted);line-height:1.5;transition:opacity .2s}
+#narrative b{color:var(--ink);font-weight:600}
+#narrative .up{color:var(--in)} #narrative .dn{color:var(--out)}
+#narrative em{font-style:normal;color:var(--faint)}
+
+/* ---- credibility strip: what the map is worth, stated permanently ---- */
+#creds{bottom:44px;left:20px;display:flex;gap:20px;align-items:flex-end}
+#creds .c{display:flex;flex-direction:column;gap:1px;cursor:help}
+#creds .v{font-family:"JetBrains Mono",monospace;font-size:19px;color:var(--accent);
+  line-height:1;font-variant-numeric:tabular-nums}
+#creds .k{font-family:"JetBrains Mono",monospace;font-size:8px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--faint);max-width:92px;line-height:1.35}
 #status{bottom:16px;left:20px;font-family:"JetBrains Mono",monospace;font-size:9.5px;
   letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
 #hint{bottom:16px;right:20px;font-family:"JetBrains Mono",monospace;font-size:9px;
@@ -60,31 +120,48 @@ canvas.drag{cursor:grabbing}
 #rail .note{font-size:11px;color:var(--faint);padding:0 16px 10px;margin:0}
 #tabs{display:flex;gap:1px;background:var(--line);margin:0 0 12px;border-block:1px solid var(--line)}
 #tabs button{flex:1;background:var(--panel-solid);border:0;color:var(--faint);cursor:pointer;
-  font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
-  padding:9px 2px;transition:.15s}
+  font-family:"JetBrains Mono",monospace;font-size:8.5px;letter-spacing:.06em;
+  text-transform:uppercase;padding:9px 1px;transition:.15s;white-space:nowrap}
 #tabs button:hover{color:var(--muted)}
-#tabs button.on{color:var(--cyan);background:#150F2B;box-shadow:inset 0 -2px 0 var(--cyan)}
+#tabs button.on{color:var(--cyan);background:var(--tab-on);box-shadow:inset 0 -2px 0 var(--cyan)}
 #tabs button:focus-visible{outline:1px solid var(--cyan);outline-offset:-2px}
 #search{margin:0 12px 10px;display:none}
-#search input{width:100%;background:#0B0819;border:1px solid var(--line-hot);color:var(--ink);
+#search input{width:100%;background:var(--field);border:1px solid var(--line-hot);color:var(--ink);
   font-family:"JetBrains Mono",monospace;font-size:12px;padding:8px 10px;outline:none}
-#search input:focus{border-color:var(--cyan);box-shadow:0 0 12px rgba(45,226,230,.2)}
+#search input:focus{border-color:var(--cyan);box-shadow:0 0 12px rgba(61,214,208,.18)}
 #search input::placeholder{color:var(--faint)}
 .pane{display:none;flex:1;overflow-y:auto;overflow-x:hidden}
 .pane.on{display:block}
 #board{position:relative;height:100%}
-.fl2{padding:7px 14px;border-bottom:1px solid rgba(36,26,69,.6);font-family:"JetBrains Mono",monospace;
+.fl2{padding:7px 14px;border-bottom:1px solid var(--hair);font-family:"JetBrains Mono",monospace;
   font-size:11px;cursor:pointer}
-.fl2:hover{background:#130E28}
+.fl2:hover{background:var(--hover)}
 .fl2 .p{display:flex;align-items:center;gap:6px;color:var(--ink)}
 .fl2 .p em{font-style:normal;color:var(--faint)}
 .fl2 .m{display:flex;justify-content:space-between;color:var(--faint);margin-top:2px;font-size:10px}
 .fl2 .m b{color:var(--cyan);font-weight:400}
 .mv{display:flex;align-items:center;gap:8px;padding:6px 14px;font-family:"JetBrains Mono",monospace;
-  font-size:11px;border-bottom:1px solid rgba(36,26,69,.5)}
+  font-size:11px;border-bottom:1px solid var(--hair)}
 .mv .sy{flex:1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mv .dl{flex:none}
 .up{color:var(--in)} .dn{color:var(--out)}
+/* ---- persistence: repeat-winner rate per chain ----
+   The bar is the whole argument — recurrence is the ceiling on whether a cohort
+   strategy can work at all, so the ~4% floor is drawn as a line you can see
+   chains fall below. */
+.pz{padding:9px 14px;border-bottom:1px solid var(--hair);
+  font-family:"JetBrains Mono",monospace;font-size:11px}
+.pz .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.pz .t span{color:var(--ink);letter-spacing:.1em;text-transform:uppercase;font-size:10px}
+.pz .t b{font-weight:700;font-size:13px}
+.pz .bar{position:relative;height:7px;background:var(--field);margin:6px 0 5px;overflow:hidden}
+.pz .bar i{position:absolute;inset:0 auto 0 0;display:block}
+.pz .bar u{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--faint)}
+.pz .m{display:flex;justify-content:space-between;color:var(--faint);font-size:9.5px}
+.pz .m b{color:var(--muted);font-weight:400}
+.pz.dead .t span,.pz.dead .m b{color:var(--faint)}
+#p-persist .foot{padding:11px 14px;color:var(--muted);font-size:11px;line-height:1.5}
+#p-persist .foot b{color:var(--ink);font-weight:400}
 #sres{padding:0 0 10px}
 #sres .det{padding:10px 14px;font-family:"JetBrains Mono",monospace;font-size:11px}
 #sres .det .h{font-size:14px;color:var(--accent);font-weight:700}
@@ -93,9 +170,9 @@ canvas.drag{cursor:grabbing}
 #sres .det .r b{color:var(--ink);font-weight:400}
 #sres .det .lbl{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;margin:10px 0 3px}
 #sres .det .lbl.i{color:var(--in)} #sres .det .lbl.o{color:var(--out)}
-#sres .hit{padding:7px 14px;cursor:pointer;color:var(--muted);border-bottom:1px solid rgba(36,26,69,.5);
+#sres .hit{padding:7px 14px;cursor:pointer;color:var(--muted);border-bottom:1px solid var(--hair);
   font-family:"JetBrains Mono",monospace;font-size:11.5px}
-#sres .hit:hover{background:#130E28;color:var(--ink)}
+#sres .hit:hover{background:var(--hover);color:var(--ink)}
 #speed{background:transparent;border:1px solid var(--line-hot);color:var(--muted);
   font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;padding:7px 9px;
   cursor:pointer;flex:none;transition:.15s;min-width:42px}
@@ -128,7 +205,7 @@ canvas.drag{cursor:grabbing}
 #play{background:transparent;border:1px solid var(--line-hot);color:var(--cyan);
   font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;padding:7px 12px;
   cursor:pointer;text-transform:uppercase;flex:none;transition:.15s}
-#play:hover{background:var(--line);box-shadow:0 0 16px rgba(45,226,230,.25)}
+#play:hover{background:var(--line);box-shadow:0 0 16px rgba(61,214,208,.22)}
 #play:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 #track{flex:1;position:relative;height:34px;cursor:grab;touch-action:none}
 #track:active{cursor:grabbing}
@@ -143,7 +220,7 @@ canvas.drag{cursor:grabbing}
 
 /* ---- hover card ---- */
 #card{position:fixed;z-index:8;pointer-events:none;opacity:0;transition:opacity .11s;
-  background:rgba(8,5,18,.96);border:1px solid var(--line-hot);padding:11px 13px;min-width:206px;
+  background:rgba(10,13,19,.97);border:1px solid var(--line-hot);padding:11px 13px;min-width:206px;
   max-width:250px;font-family:"JetBrains Mono",monospace;font-size:11px}
 #card .h{font-size:13px;color:var(--accent);font-weight:700;letter-spacing:.05em}
 #card .ch{color:var(--faint);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:7px}
@@ -165,20 +242,72 @@ canvas.drag{cursor:grabbing}
 #bootlines div.on{opacity:1}
 #bootlines span{color:var(--faint)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-</style>'''
+
+/* ---------------------------------------------------------------------------
+   Narrow screens. The rail becomes a bottom sheet rather than a side panel, and
+   the map keeps the upper half of the viewport. Keyboard hints are dropped
+   because there is no keyboard; everything they describe has a touch gesture.
+   ------------------------------------------------------------------------- */
+@media (max-width:860px){
+  #brand{top:12px;left:14px;right:14px}
+  #brand h1{font-size:30px}
+  #brand .eyebrow,#brand .tag{font-size:8.5px;letter-spacing:.18em}
+  #brand .date{font-size:16px;margin-top:5px}
+  #legend{max-width:none;margin-top:9px}
+  #hint{display:none}
+
+  #rail{top:auto;left:0;right:0;bottom:0;width:auto;height:46vh;
+    border-left:0;border-top:1px solid var(--line);padding:0 0 8px;
+    transform:translateY(0)}
+  #rail.hidden{transform:translateY(100%)}
+  #board{height:560px;overflow:visible}
+  .pane{overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+  #railToggle{top:auto;right:14px;bottom:calc(46vh + 10px);
+    transition:bottom .32s cubic-bezier(.4,0,.2,1),background .15s}
+  #railToggle.out{right:14px;bottom:14px}
+
+  #transport{left:14px;right:14px;width:auto;transform:none;
+    bottom:calc(46vh + 52px);transition:bottom .32s cubic-bezier(.4,0,.2,1)}
+  #transport.wide{width:auto;bottom:56px}
+
+  /* the sheet covers the bottom-left corner, and the run stats are repeated in
+     the credibility strip — drop the duplicate rather than stack it underneath */
+  #status{display:none}
+  #card{max-width:min(250px,calc(100vw - 28px))}
+  #tabs button{font-size:10px;letter-spacing:.1em;padding:12px 2px}
+  /* the narrative and the numbers are the point — they stay, stacked under the
+     brand where there is width for them, rather than floating over the map */
+  #narrative{position:static;margin:11px 0 0;text-align:left;font-size:12px}
+  #creds{position:static;margin:12px 0 0;gap:16px}
+  #creds .v{font-size:16px}
+  #creds .k{font-size:7.5px;max-width:78px}
+}
+@media (max-width:420px){
+  #brand h1{font-size:25px}
+  #rail,#railToggle,#transport{--sheet:52vh}
+  #rail{height:52vh}
+  #railToggle{bottom:calc(52vh + 10px)}
+  #transport{bottom:calc(52vh + 52px);gap:8px}
+  #play,#speed{padding:7px 9px;font-size:9px}
+}
+</style>
+</head>
+<body>'''
 
 BODY = r'''
 <canvas id="cv"></canvas>
 <div id="fx"></div>
 
 <div class="ov" id="brand">
-  <div class="eyebrow">Nansen · 741 repeat winners · 4 chains</div>
+  <div class="eyebrow" id="eyebrow"></div>
   <h1>Cavit<span class="d">ation</span></h1>
-      <div class="tag">the collapse is where the damage happens</div>
+  <div class="tag" id="tag"></div>
   <div class="date mono" id="date">—</div>
+  <div id="legend" role="group" aria-label="Filter by chain"></div>
+  <div class="ov" id="narrative"></div>
+  <div class="ov" id="creds"></div>
 </div>
-
-<div class="ov" id="legend"></div>
 
 <button id="railToggle" aria-expanded="true">Hide panel</button>
 <aside class="ov" id="rail">
@@ -186,6 +315,7 @@ BODY = r'''
     <button data-p="rank" class="on">Rank</button>
     <button data-p="flow">Flows</button>
     <button data-p="move">Movers</button>
+    <button data-p="persist">Persist</button>
     <button data-p="find">Search</button>
   </div>
   <div id="search"><input id="q" type="text" placeholder="search token…" autocomplete="off"></div>
@@ -193,6 +323,7 @@ BODY = r'''
   <div class="pane on" id="p-rank"><div id="board"></div></div>
   <div class="pane" id="p-flow"></div>
   <div class="pane" id="p-move"></div>
+  <div class="pane" id="p-persist"></div>
   <div class="pane" id="p-find"><div id="sres"></div></div>
 </aside>
 
@@ -226,9 +357,8 @@ const MOTION={
   particleRate:0.00040,
   rippleMs    :850,
   boardHz     :8,      // ranking-panel refresh (Hz) — DOM work, keep low
-  moshGain    :3.4,    // RGB-split strength per unit of scrub velocity
-  moshMax     :14,     // px cap on the split
-  glitchMs    :260,    // scanline tear duration on a big rotation
+  moshGain    :0.9,    // RGB-split strength per unit of scrub velocity
+  moshMax     :3,      // px cap — scrubbing is the money shot, it must stay legible
   idleMs      :140,    // how long after interaction before full glow returns
 };
 /* ===========================================================================
@@ -243,27 +373,32 @@ const CONFIG={
   labelMinPx:11,          // …or any node at least this big on screen
   focusDim:0.06,
   zoomMin:0.42, zoomMax:4.2,
-  fitFill:1.18,           // >1 fills the frame rather than fitting exactly
-  glitchShared:6,         // shared wallets needed to trigger a tear
+  fitFill:1.00,           // 1.0 = everything visible on load; the judge never pans
   glowMinPx:7,            // nodes smaller than this get no glow (cheap + cleaner)
+  hullPad:22, hullFill:0.05, hullLine:0.20,   // chain territory outline
   speeds:[0.5,1,2],       // play-rate options
   chain:{                 // rest = identity, hot = saturated; accent takes over at full activity
-    robinhood:{rest:'#8E2340', hot:'#FF3864'},
-    bnb      :{rest:'#7A6508', hot:'#F9C80E'},
-    base     :{rest:'#177074', hot:'#2DE2E6'},
-    solana   :{rest:'#2C7047', hot:'#57E389'},
-    ethereum :{rest:'#4F2A70', hot:'#9D4EDD'},
-    hyperevm :{rest:'#7F4520', hot:'#FF8A3D'}
+    /* rest sits close to the background so the CHANGE carries the signal, not raw
+       brightness; hot is the chain's identity at full activity. */
+    robinhood:{rest:'#5A2733', hot:'#FF4D6A'},
+    bnb      :{rest:'#514520', hot:'#E8B33C'},
+    base     :{rest:'#1E4C55', hot:'#3DD6D0'},
+    solana   :{rest:'#26503B', hot:'#4FD98A'},
+    ethereum :{rest:'#3A3356', hot:'#8B7FE8'},
+    hyperevm :{rest:'#553524', hot:'#F0844A'}
   },
-  fallback:{rest:'#3A3355', hot:'#8A7FB8'}
+  fallback:{rest:'#2E3646', hot:'#8290A8'}
 };
 const D = __PAYLOAD__;
 __ENGINE__
-</script>'''
+</script>
+</body>
+</html>'''
 
 ENGINE = open("engine.js").read()
 payload = open("data/bubbles80.json").read()
-out = HEAD + BODY.replace("__ENGINE__", ENGINE).replace("__PAYLOAD__", payload)
+out = (HEAD.replace("__SITE__", SITE).replace("__BLURB__", BLURB)
+       + BODY.replace("__ENGINE__", ENGINE).replace("__PAYLOAD__", payload))
 import pathlib; pathlib.Path("docs").mkdir(exist_ok=True)
 open("docs/index.html","w",encoding="utf-8").write(out)
 import os; print("site written", f"{os.path.getsize('docs/index.html'):,}", "bytes")
