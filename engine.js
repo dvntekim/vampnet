@@ -14,8 +14,14 @@ let hoverId=null, ripples=[], moshAmt=0;
 /* shadowBlur is by far the most expensive canvas op — ~300 shadowed draws/frame was
    what stalled pan/zoom. GLOW drops to 0 while the user is interacting and eases
    back once things settle, so motion stays at 60fps and stillness stays pretty. */
-let lastInteract=0, GLOW=1;
+let lastInteract=0, lastInput=0, GLOW=1;
+/* `poke` means something is moving — the glow ducks for it, including during
+   playback, which the frame loop drives through the same call. `input` means a
+   hand is on the controls. The board keys off `input` alone: playback moves the
+   map continuously, and a board that froze for the whole run would be reporting
+   nothing at the moment it has the most to say. */
 const poke=()=>{lastInteract=performance.now();};
+const input=()=>{lastInput=performance.now();poke();};
 const view={x:0,y:0,k:1, tx:0,ty:0,tk:1, vx:0,vy:0};   // current + target + pan velocity
 const chainOn={}; D.chains.forEach(c=>chainOn[c]=true);
 
@@ -502,18 +508,32 @@ function paintHUD(t){
   document.getElementById('track').setAttribute('aria-valuenow',Math.round(p));
 }
 
-/* ---- main loop ---- */
-let lastT=LAST;
-function frame(){
-  if(playing){targetT+=MOTION.playSpeed*rate();if(targetT>LAST){targetT=LAST;setPlay(false);}}
-  curT+=(targetT-curT)*MOTION.scrubEase;
+/* ---- main loop ----
+   Every constant in MOTION is a per-frame fraction, which quietly tied the whole
+   feel to the display: measured on a 120Hz panel, the month played at 18 days a
+   second against the 9 it was tuned for, and every ease settled in half the time.
+   `f` is this frame's length in 60Hz frames, so a build behaves identically at
+   60, 120 or 144Hz — and on a high-refresh screen it also halves how often the
+   board reorders, which is the one piece of DOM here that costs frames. Clamped
+   at both ends: a backgrounded tab comes back with a delta of seconds. */
+const STEP=1000/60;
+let lastT=LAST, prevTs=performance.now();
+function frame(ts){
+  const now=ts||performance.now();
+  const f=clamp((now-prevTs)/STEP,0.2,3); prevTs=now;
+  /* a per-frame fraction e, re-expressed for a frame f times as long */
+  const ease=e=>1-Math.pow(1-e,f);
+  if(playing){targetT+=MOTION.playSpeed*rate()*f;if(targetT>LAST){targetT=LAST;setPlay(false);}}
+  curT+=(targetT-curT)*ease(MOTION.scrubEase);
   if(Math.abs(targetT-curT)<0.0004)curT=targetT;
-  moshAmt=moshAmt*0.82+Math.abs(curT-lastT)*0.9; lastT=curT;
+  moshAmt=moshAmt*Math.pow(0.82,f)+Math.abs(curT-lastT)*0.9; lastT=curT;
   if(moshAmt>0.35||Math.abs(view.tk-view.k)>0.002||Math.abs(view.vx)+Math.abs(view.vy)>0.4)poke();
-  if(!dragging){view.tx+=view.vx;view.ty+=view.vy;view.vx*=MOTION.panFriction;view.vy*=MOTION.panFriction;}
-  view.x+=(view.tx-view.x)*MOTION.zoomEase;
-  view.y+=(view.ty-view.y)*MOTION.zoomEase;
-  view.k+=(view.tk-view.k)*MOTION.zoomEase;
+  if(!dragging){view.tx+=view.vx*f;view.ty+=view.vy*f;
+    const fr=Math.pow(MOTION.panFriction,f); view.vx*=fr; view.vy*=fr;}
+  const z=ease(MOTION.zoomEase);
+  view.x+=(view.tx-view.x)*z;
+  view.y+=(view.ty-view.y)*z;
+  view.k+=(view.tk-view.k)*z;
   draw(curT);
   requestAnimationFrame(frame);
 }
@@ -534,7 +554,7 @@ function pinchMove(){
   const k0=view.tk, k1=clamp(k0*(d/pinchD),CONFIG.zoomMin,CONFIG.zoomMax);
   const mx=(p[0].x+p[1].x)/2-W/2, my=(p[0].y+p[1].y)/2-H/2;
   view.tx-=mx*(1/k0-1/k1); view.ty-=my*(1/k0-1/k1);
-  view.tk=k1; pinchD=d; poke(); hideCard();
+  view.tk=k1; pinchD=d; input(); hideCard();
 }
 cv.addEventListener('pointerdown',e=>{
   PTRS.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -544,7 +564,7 @@ cv.addEventListener('pointerdown',e=>{
     const p=twoPts(); pinchD=p?Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y):0;
     return;
   }
-  dragging=true;moved=0;poke();px0=e.clientX;py0=e.clientY;
+  dragging=true;moved=0;input();px0=e.clientX;py0=e.clientY;
   view.vx=view.vy=0;cv.classList.add('drag');});
 cv.addEventListener('pointermove',e=>{
   if(PTRS.has(e.pointerId))PTRS.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -552,7 +572,7 @@ cv.addEventListener('pointermove',e=>{
   if(dragging){
     const dx=(e.clientX-px0)/view.k, dy=(e.clientY-py0)/view.k;
     view.tx+=dx;view.ty+=dy;view.x+=dx;view.y+=dy;
-    view.vx=dx*0.85;view.vy=dy*0.85;moved+=Math.abs(dx)+Math.abs(dy);poke();
+    view.vx=dx*0.85;view.vy=dy*0.85;moved+=Math.abs(dx)+Math.abs(dy);input();
     px0=e.clientX;py0=e.clientY;hideCard();return;
   }
   hoverTest(e.clientX,e.clientY);
@@ -571,7 +591,7 @@ addEventListener('pointerup',endPointer);
 addEventListener('pointercancel',endPointer);
 cv.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){hoverId=null;hideCard();}});
 cv.addEventListener('wheel',e=>{
-  e.preventDefault();poke();
+  e.preventDefault();input();
   const k0=view.tk, k1=clamp(k0*(e.deltaY<0?1.14:0.877),CONFIG.zoomMin,CONFIG.zoomMax);
   /* zoom toward the cursor, not the centre */
   const mx=e.clientX-W/2, my=e.clientY-H/2;
@@ -623,7 +643,7 @@ track.addEventListener('pointermove',e=>{
   /* relative drag with gain < 1 so fine adjustment is possible */
   const r=track.getBoundingClientRect();
   targetT=clamp(dragT0+((e.clientX-dragX0)/r.width)*LAST*MOTION.scrubGain,0,LAST);
-  e.stopPropagation();});
+  input(); e.stopPropagation();});
 addEventListener('pointerup',()=>{if(sdrag){sdrag=false;snapDate();}});
 
 /* ---------- (3) playback speed ---------- */
@@ -670,6 +690,7 @@ function toggleRail(){
   transport.classList.toggle('wide',hid);
   rToggle.textContent=hid?'Show panel':'Hide panel';
   rToggle.setAttribute('aria-expanded',String(!hid));
+  if(!hid)paintRail(curT,true);             // it went stale while collapsed
   setTimeout(()=>fit(true),340);            // refit once the panel finishes sliding
 }
 rToggle.addEventListener('click',toggleRail);
@@ -741,7 +762,7 @@ function showPane(p){
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
   document.getElementById('search').style.display=p==='find'?'block':'none';
   document.getElementById('paneNote').textContent=NOTES[p];
-  lastPaint=0; paintRail(curT);
+  paintRail(curT,true);
 }
 document.querySelectorAll('#tabs button').forEach(b=>
   b.addEventListener('click',()=>showPane(b.dataset.p)));
@@ -752,7 +773,7 @@ function focusToken(id){
   hoverId=id;
   view.tx=-n.x*BASE(); view.ty=-n.y*BASE();
   view.tk=clamp(Math.max(view.tk,1.35),CONFIG.zoomMin,CONFIG.zoomMax);
-  poke();
+  input();
 }
 function flowsAt(t){
   const live=[];
@@ -836,8 +857,12 @@ function paintFresh(t){
 
 /* ---------- (1) search ---------- */
 let query='', picked=null;
+/* Centring the map is a response to the click. It used to be re-run by every
+   repaint of this pane, which pinned the map in its interacting state — glow off,
+   camera dragged back to the token eight times a second. */
+function pick(id){picked=id;focusToken(id);paintRail(curT,true);}
 const qEl=document.getElementById('q');
-qEl.addEventListener('input',()=>{query=qEl.value.trim().toLowerCase();picked=null;lastPaint=0;paintRail(curT);});
+qEl.addEventListener('input',()=>{query=qEl.value.trim().toLowerCase();picked=null;paintRail(curT,true);});
 function paintFind(t){
   const host=document.getElementById('sres');
   if(picked&&NODE[picked]){
@@ -854,9 +879,7 @@ function paintFind(t){
       <div class="r"><span>first seen</span><b>${D.days[n.first]}</b></div>
       <div class="r"><span>peak cohort</span><b>${fmt(n.peak)}</b></div>
       ${sec('Fed by','i',rows(IN[n.id],'a'))}${sec('Feeding','o',rows(OUT[n.id],'b'))}</div>`;
-    host.querySelectorAll('[data-id]').forEach(el=>el.addEventListener('click',()=>{
-      picked=el.dataset.id;focusToken(picked);lastPaint=0;paintRail(curT);}));
-    focusToken(picked);
+    host.querySelectorAll('[data-id]').forEach(el=>el.addEventListener('click',()=>pick(el.dataset.id)));
     return;
   }
   const hits=D.nodes.filter(n=>!query||n.sym.toLowerCase().includes(query))
@@ -864,12 +887,37 @@ function paintFind(t){
   host.innerHTML=hits.length?hits.map(n=>
     `<div class="hit" data-id="${n.id}"><span style="color:${cc(n.chain).hot}">●</span> ${n.sym} <span style="color:var(--faint)">${fmt(n.peak)}</span></div>`).join('')
     :'<div class="hit">no match</div>';
-  host.querySelectorAll('.hit[data-id]').forEach(el=>el.addEventListener('click',()=>{
-    picked=el.dataset.id;lastPaint=0;paintRail(curT);}));
+  host.querySelectorAll('.hit[data-id]').forEach(el=>el.addEventListener('click',()=>pick(el.dataset.id)));
 }
-function paintRail(t){
+/* The board is the only part of the HUD built from DOM, and relaying out sixteen
+   reordering rows costs more than the whole canvas does. Profiling a fast scrub put
+   every dropped frame here and nowhere else: holding it took the 99th-percentile
+   frame from 50ms to 9ms, while the canvas, the edge rescan and the datamosh each
+   measured as noise. It is unreadable mid-drag anyway — sixteen rows reshuffling
+   eight times a second — so it holds while the clock or the camera is still
+   travelling and snaps to the truth the moment they settle. `force` is for the
+   interactions that must answer immediately: switching pane, typing in search. */
+let railHeld=false;
+/* Playback is deliberately excluded. The clock trails its target by a fixed
+   amount while playing (~1.1 day-indices at 1x, ~2 at 2x), which would trip a
+   plain lag test and freeze the board for the whole run — and a board that
+   reorders as the month plays is the point of pressing play. It is also cheap
+   there: consecutive days swap a row or two, not the wholesale reshuffle a drag
+   across the timeline causes. */
+const railMoving=()=>(!playing&&Math.abs(targetT-curT)>MOTION.railHold)
+                  || Math.abs(view.tk-view.k)>0.004
+                  || (performance.now()-lastInput)<MOTION.idleMs;
+function paintRail(t,force){
   const now=performance.now();
-  if(now-lastPaint<1000/MOTION.boardHz)return; lastPaint=now;
+  if(!force){
+    if(document.hidden||!railOpen())return;   // collapsed for a screenshot, or a background tab
+    if(railMoving()){railHeld=true;return;}
+    /* first frame after a scrub lands, repaint at once rather than waiting out
+       the throttle — the delay is what would read as the board lagging behind */
+    if(railHeld)railHeld=false;
+    else if(now-lastPaint<1000/MOTION.boardHz)return;
+  }
+  lastPaint=now;
   if(pane==='rank')paintRank(t);
   else if(pane==='flow')paintFlow(t);
   else if(pane==='move')paintMove(t);

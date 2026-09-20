@@ -397,6 +397,11 @@ const MOTION={
   particleRate:0.00040,
   rippleMs    :850,
   boardHz     :8,      // ranking-panel refresh (Hz) — DOM work, keep low
+  railHold    :0.6,    // day-indices of pending scrub above which the board holds
+                       // still (drags only — playback is exempt). DOM relayout of
+                       // the reordering rows is the one thing in the app that drops
+                       // frames; raise for a calmer board, lower to keep it live
+                       // deeper into a drag.
   moshGain    :0.9,    // RGB-split strength per unit of scrub velocity
   moshMax     :3,      // px cap — scrubbing is the money shot, it must stay legible
   idleMs      :140,    // how long after interaction before full glow returns
