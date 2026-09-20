@@ -1,6 +1,6 @@
 # Canonical numbers
 
-Every figure Cavitation displays, in one place, with the run that produced it.
+Every figure Vampnet displays, in one place, with the run that produced it.
 
 The rule: **no number appears in `README.md`, `SUBMISSION.md` or on the rendered site
 unless it is in [`claims.json`](claims.json) with a provenance entry.** `make.py` reads
@@ -105,5 +105,5 @@ cached tokens) and **40** (the `--demo` preset's `max_wallets` cap, which overwr
 - **Crowding is mildly bearish**: ≥3 cohort wallets entering predicted −12.5% at 5 days.
 - **Precision is not certainty.** ~71% of high-conviction names never run.
 - **Coverage is ecosystem-bound.** Below roughly 4% repeat-winner rate, a cohort strategy
-  has no headroom at all. The Persistence panel reports this per chain rather than hiding it.
+  has no headroom at all. Each chain chip in the masthead carries its own rate rather than hiding it.
 - One window, one market regime.

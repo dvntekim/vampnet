@@ -570,7 +570,16 @@ function setPlay(v){
   dateEl.classList.toggle('paused',!v&&everPlayed);
 }
 playBtn.addEventListener('click',()=>setPlay(!playing));
+/* Single-key shortcuts must not fire while the user is typing: searching for
+   HOOKR would otherwise hide the panel on the H and reframe the map on the R.
+   Escape leaves the field so the shortcuts come back without reaching for the mouse. */
+const typing=el=>!!el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable);
 addEventListener('keydown',e=>{
+  if(typing(e.target)){
+    if(e.key==='Escape'){e.target.blur();}
+    return;
+  }
+  if(e.metaKey||e.ctrlKey||e.altKey)return;      // leave browser shortcuts alone
   if(e.key===' '){setPlay(!playing);e.preventDefault();}
   if(e.key==='ArrowRight'){setPlay(false);targetT=Math.min(LAST,Math.round(targetT)+1);}
   if(e.key==='ArrowLeft'){setPlay(false);targetT=Math.max(0,Math.round(targetT)-1);}
@@ -597,8 +606,21 @@ rToggle.addEventListener('click',toggleRail);
    finding, so it belongs where the colours are explained. */
 const legend=document.getElementById('legend');
 const chainCount={}; D.nodes.forEach(n=>chainCount[n.chain]=(chainCount[n.chain]||0)+1);
+/* Repeat-winner rate per chain is the ceiling on whether a cohort can work there at
+   all, and it is the finding that explains why one territory carries the map. It
+   rides the chip rather than a panel of its own — the colour and its caveat in the
+   same place, costing no screen. */
+const PERSIST={}; (D.persistence||[]).forEach(r=>PERSIST[r.chain]=r);
+const chainTitle=c=>{
+  const r=PERSIST[c]; if(!r)return `${c}: ${chainCount[c]||0} tokens`;
+  return `${c} — ${r.rate}% repeat-winner rate (${r.repeat} of ${r.traders.toLocaleString()} `+
+         `winning traders won more than once)`+
+         (r.covtot?`. Out-of-time coverage ${r.cov}/${r.covtot}.`:'.')+
+         (r.rate<4?' Below the ~4% floor, a cohort has no headroom here.':'');
+};
 legend.innerHTML=D.chains.map(c=>
-  `<button type="button" class="row on" data-c="${c}" aria-pressed="true">`+
+  `<button type="button" class="row on" data-c="${c}" aria-pressed="true" `+
+  `title="${chainTitle(c).replace(/"/g,'&quot;')}">`+
   `<i style="background:${cc(c).hot};color:${cc(c).hot}"></i>`+
   `<span>${c}</span><b style="font-weight:400;opacity:.6">${chainCount[c]||0}</b></button>`).join('');
 legend.querySelectorAll('.row').forEach(r=>r.addEventListener('click',()=>{
@@ -631,12 +653,11 @@ document.getElementById('ticks').innerHTML=[0,.25,.5,.75,1]
    ========================================================================= */
 const board=document.getElementById('board'), ROWS={};
 const panes={rank:document.getElementById('p-rank'),flow:document.getElementById('p-flow'),
-             move:document.getElementById('p-move'),find:document.getElementById('p-find'),
-             persist:document.getElementById('p-persist')};
+             move:document.getElementById('p-move'),find:document.getElementById('p-find')};
+
 const NOTES={rank:'Cohort capital, reordering as you scrub.',
              flow:'Shared wallets reducing one token while increasing another.',
              move:'7-day change in cohort capital at this frame.',
-             persist:'Repeat-winner rate per chain — the ceiling on this whole method.',
              find:'Find a token and see what it feeds, and what feeds it.'};
 let pane='rank', lastPaint=0;
 function showPane(p){
@@ -721,33 +742,6 @@ function paintMove(t){
   panes.move.querySelectorAll('.mv[data-id]').forEach(el=>
     el.addEventListener('click',()=>focusToken(el.dataset.id)));
 }
-/* ---------- persistence: the ceiling on whether a cohort can work at all ----------
-   Static for a given build, so it renders once rather than on every rail repaint. */
-const FLOOR=4.0;                                  // repeat-winner rate below which coverage collapsed
-let persistPainted=false;
-function paintPersist(){
-  if(persistPainted)return; persistPainted=true;
-  const rows=(D.persistence||[]).slice().sort((a,b)=>b.rate-a.rate);
-  if(!rows.length){
-    panes.persist.innerHTML='<div class="foot">No persistence data in this build.</div>';
-    return;
-  }
-  const top=Math.max(FLOOR*1.25,...rows.map(r=>r.rate));
-  panes.persist.innerHTML=rows.map(r=>{
-    const col=cc(r.chain).hot, live=r.rate>=FLOOR;
-    return `<div class="pz${live?'':' dead'}">
-      <div class="t"><span>${r.chain}</span><b style="color:${live?col:'var(--faint)'}">${r.rate.toFixed(1)}%</b></div>
-      <div class="bar"><i style="width:${Math.max(1.5,r.rate/top*100)}%;background:${col};opacity:${live?1:.4}"></i>
-        <u style="left:${FLOOR/top*100}%"></u></div>
-      <div class="m"><span><b>${r.traders.toLocaleString()}</b> traders · <b>${r.repeat}</b> repeat</span>
-        <span>${r.covtot?`covered <b>${r.cov}/${r.covtot}</b>`:'—'}</span></div>
-    </div>`;}).join('')+
-    `<div class="foot">Share of a chain's winning traders who won <b>more than once</b>.
-     The line marks <b>${FLOOR}%</b> — below it, every chain we tested covered
-     <b>none</b> of the following month's winners. Solana, the busiest memecoin chain,
-     has the <b>least</b> persistent winners: one repeat winner in 499.</div>`;
-}
-
 /* ---------- (1) search ---------- */
 let query='', picked=null;
 const qEl=document.getElementById('q');
@@ -787,7 +781,6 @@ function paintRail(t){
   if(pane==='rank')paintRank(t);
   else if(pane==='flow')paintFlow(t);
   else if(pane==='move')paintMove(t);
-  else if(pane==='persist')paintPersist();
   else paintFind(t);
 }
 

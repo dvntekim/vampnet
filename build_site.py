@@ -9,23 +9,23 @@ HEAD = r'''<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Cavitation — the onchain attention map</title>
+<title>Vampnet — the onchain attention map</title>
 <meta name="description" content="__BLURB__">
-<meta name="author" content="Cavitation">
+<meta name="author" content="Vampnet">
 <link rel="canonical" href="__SITE__">
 
 <!-- Social cards. The product is visual, so the preview image is the pitch. -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Cavitation">
+<meta property="og:site_name" content="Vampnet">
 <meta property="og:url" content="__SITE__">
-<meta property="og:title" content="Cavitation — the onchain attention map">
+<meta property="og:title" content="Vampnet — the onchain attention map">
 <meta property="og:description" content="__BLURB__">
 <meta property="og:image" content="__SITE__og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A dark network map of memecoin tokens clustered by chain, sized by market cap, with capital rotations drawn as glowing links between them.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Cavitation — the onchain attention map">
+<meta name="twitter:title" content="Vampnet — the onchain attention map">
 <meta name="twitter:description" content="__BLURB__">
 <meta name="twitter:image" content="__SITE__og.png">
 <meta name="theme-color" content="#0A0C11">
@@ -145,23 +145,6 @@ canvas.drag{cursor:grabbing}
 .mv .sy{flex:1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mv .dl{flex:none}
 .up{color:var(--in)} .dn{color:var(--out)}
-/* ---- persistence: repeat-winner rate per chain ----
-   The bar is the whole argument — recurrence is the ceiling on whether a cohort
-   strategy can work at all, so the ~4% floor is drawn as a line you can see
-   chains fall below. */
-.pz{padding:9px 14px;border-bottom:1px solid var(--hair);
-  font-family:"JetBrains Mono",monospace;font-size:11px}
-.pz .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.pz .t span{color:var(--ink);letter-spacing:.1em;text-transform:uppercase;font-size:10px}
-.pz .t b{font-weight:700;font-size:13px}
-.pz .bar{position:relative;height:7px;background:var(--field);margin:6px 0 5px;overflow:hidden}
-.pz .bar i{position:absolute;inset:0 auto 0 0;display:block}
-.pz .bar u{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--faint)}
-.pz .m{display:flex;justify-content:space-between;color:var(--faint);font-size:9.5px}
-.pz .m b{color:var(--muted);font-weight:400}
-.pz.dead .t span,.pz.dead .m b{color:var(--faint)}
-#p-persist .foot{padding:11px 14px;color:var(--muted);font-size:11px;line-height:1.5}
-#p-persist .foot b{color:var(--ink);font-weight:400}
 #sres{padding:0 0 10px}
 #sres .det{padding:10px 14px;font-family:"JetBrains Mono",monospace;font-size:11px}
 #sres .det .h{font-size:14px;color:var(--accent);font-weight:700}
@@ -301,7 +284,7 @@ BODY = r'''
 
 <div class="ov" id="brand">
   <div class="eyebrow" id="eyebrow"></div>
-  <h1>Cavit<span class="d">ation</span></h1>
+  <h1>Vamp<span class="d">net</span></h1>
   <div class="tag" id="tag"></div>
   <div class="date mono" id="date">—</div>
   <div id="legend" role="group" aria-label="Filter by chain"></div>
@@ -315,7 +298,6 @@ BODY = r'''
     <button data-p="rank" class="on">Rank</button>
     <button data-p="flow">Flows</button>
     <button data-p="move">Movers</button>
-    <button data-p="persist">Persist</button>
     <button data-p="find">Search</button>
   </div>
   <div id="search"><input id="q" type="text" placeholder="search token…" autocomplete="off"></div>
@@ -323,7 +305,6 @@ BODY = r'''
   <div class="pane on" id="p-rank"><div id="board"></div></div>
   <div class="pane" id="p-flow"></div>
   <div class="pane" id="p-move"></div>
-  <div class="pane" id="p-persist"></div>
   <div class="pane" id="p-find"><div id="sres"></div></div>
 </aside>
 

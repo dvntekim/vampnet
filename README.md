@@ -1,4 +1,4 @@
-# Cavitation
+# Vampnet
 
 **A map of where proven onchain capital moves next, built entirely on the Nansen API.**
 
@@ -69,7 +69,7 @@ then tested against September's winners.
 Every one of those numbers lives in [`research/claims.json`](research/claims.json) with the
 run that produced it, and `make.py` reads that file rather than hardcoding anything — so the
 site cannot drift from the research. [`research/NUMBERS.md`](research/NUMBERS.md) is the
-readable version, including the one claim we withdrew for lack of an artifact.
+readable version, including the claim we withdrew and then superseded by measuring it.
 
 **Both figures come from one frozen-cohort run at the map's own 4+ threshold**
 (`research/out_of_time_2026-08-31.json`). The cohort was built only from winners that
@@ -126,10 +126,10 @@ scripts/
   build_bubbles.py     cohort → nodes, edges, activity, clustered layout
   restamp.py           re-solve layout / refresh claims, no API key, 0 credits
   verify_build.py      the publish gate — both CI workflows run it
+  measure_perf.js      paste into DevTools: draw cost and frame interval, kept apart
 research/scripts/
   out_of_time.py       frozen-cohort coverage test; --write-claims updates claims.json
   check_claims.py      fails if a displayed number drifts from its run artifact
-  measure_perf.js      paste into DevTools: draw cost and frame interval, kept apart
 docs/index.html      the published site (generated)
 docs/og.png          social card (regenerate after a visual change)
 research/claims.json every displayed number, with the run that produced it
@@ -163,8 +163,8 @@ now a short link between neighbours instead of an arc across empty canvas.
 | hover | market cap, cohort capital, wallets, **Fed by / Feeding** |
 
 Right rail: **Rank** · **Flows** (what is draining into what) · **Movers** (7-day gainers
-and bleeders) · **Persist** (repeat-winner rate per chain, and the ~4% floor below which a
-cohort cannot work) · **Search**.
+and bleeders) · **Search**. Repeat-winner rate per chain — the ceiling on whether a cohort
+can work there — is on each chain chip in the masthead.
 
 Above the map, a one-line narrative is regenerated from the payload every frame — never
 written by hand. Bottom left, the three validated numbers are on screen permanently, each
@@ -179,7 +179,7 @@ carrying its measurement scope on hover.
   sides. Solana ↔ Solana edges do appear, but the Solana cohort is 33 wallets because
   Solana's repeat-winner rate is 0.2%.
 - **Coverage is ecosystem-bound.** 78% on Robinhood; near zero on chains below ~4%
-  repeat-winner rate. The Persistence panel reports this per chain rather than hiding it.
+  repeat-winner rate. Each chain chip carries its own rate rather than hiding it.
 - **Co-rotation is not causation.** Edges are labelled "Fed by / Feeding" on shared-wallet
   evidence. Direct A→B attribution was tested and is not reliable.
 - One 141-day window, one market regime.

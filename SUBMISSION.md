@@ -1,4 +1,4 @@
-# Cavitation — submission case
+# Vampnet — submission case
 
 Scored against the four criteria, with the evidence for each.
 
@@ -76,8 +76,8 @@ Base's 2/3 is three tokens and should not be read as a rate.
 
 Counter-intuitively, **Solana — the busiest memecoin chain — has the least persistent
 winners** (one repeat winner in 499). That number is the hard ceiling on whether *any*
-cohort strategy can work on a chain, and no existing tool measures it. We ship it as a
-first-class panel rather than hiding it.
+cohort strategy can work on a chain, and no existing tool measures it. Every chain chip
+carries its own rate, so the caveat sits next to the colour it qualifies.
 
 **We falsified our own thesis and shipped only what survived.** Four independent tests of
 "does flow predict returns" — token-level correlation, five alternative signal formulations,
@@ -180,5 +180,5 @@ causation costs nothing and makes every other number more credible.
 | 40–55 | Hover the largest node in the Robinhood cluster | Cohort capital, wallets in, **Fed by** / **Feeding** — green in, red out |
 | 55–70 | Flows and Movers tabs | Live rotations and 7-day gainers/bleeders |
 | 70–85 | Search "CASHCAT" → click | Camera flies to it, full rotation card |
-| 85–100 | **Persist** tab | 8.6% Robinhood vs 0.2% Solana against the 4% floor — the finding |
+| 85–100 | Hover the Solana and Robinhood chips | 8.6% vs 0.2% repeat-winner rate against the 4% floor — the finding |
 | 100–110 | Toggle a chain chip off and back on | The map reframes to the remaining territories; then `H` for a clean screenshot |

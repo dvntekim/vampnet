@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Cavitation — the onchain attention map</title>
+<title>Vampnet — the onchain attention map</title>
 <meta name="description" content="Where proven onchain capital moves next. 741 wallets that each won four or more separate memecoins, mapped across 80 tokens and 141 days — built entirely on the Nansen API.">
-<meta name="author" content="Cavitation">
+<meta name="author" content="Vampnet">
 <link rel="canonical" href="https://dvnykim.github.io/cavitation/">
 
 <!-- Social cards. The product is visual, so the preview image is the pitch. -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Cavitation">
+<meta property="og:site_name" content="Vampnet">
 <meta property="og:url" content="https://dvnykim.github.io/cavitation/">
-<meta property="og:title" content="Cavitation — the onchain attention map">
+<meta property="og:title" content="Vampnet — the onchain attention map">
 <meta property="og:description" content="Where proven onchain capital moves next. 741 wallets that each won four or more separate memecoins, mapped across 80 tokens and 141 days — built entirely on the Nansen API.">
 <meta property="og:image" content="https://dvnykim.github.io/cavitation/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A dark network map of memecoin tokens clustered by chain, sized by market cap, with capital rotations drawn as glowing links between them.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Cavitation — the onchain attention map">
+<meta name="twitter:title" content="Vampnet — the onchain attention map">
 <meta name="twitter:description" content="Where proven onchain capital moves next. 741 wallets that each won four or more separate memecoins, mapped across 80 tokens and 141 days — built entirely on the Nansen API.">
 <meta name="twitter:image" content="https://dvnykim.github.io/cavitation/og.png">
 <meta name="theme-color" content="#0A0C11">
@@ -139,23 +139,6 @@ canvas.drag{cursor:grabbing}
 .mv .sy{flex:1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mv .dl{flex:none}
 .up{color:var(--in)} .dn{color:var(--out)}
-/* ---- persistence: repeat-winner rate per chain ----
-   The bar is the whole argument — recurrence is the ceiling on whether a cohort
-   strategy can work at all, so the ~4% floor is drawn as a line you can see
-   chains fall below. */
-.pz{padding:9px 14px;border-bottom:1px solid var(--hair);
-  font-family:"JetBrains Mono",monospace;font-size:11px}
-.pz .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.pz .t span{color:var(--ink);letter-spacing:.1em;text-transform:uppercase;font-size:10px}
-.pz .t b{font-weight:700;font-size:13px}
-.pz .bar{position:relative;height:7px;background:var(--field);margin:6px 0 5px;overflow:hidden}
-.pz .bar i{position:absolute;inset:0 auto 0 0;display:block}
-.pz .bar u{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--faint)}
-.pz .m{display:flex;justify-content:space-between;color:var(--faint);font-size:9.5px}
-.pz .m b{color:var(--muted);font-weight:400}
-.pz.dead .t span,.pz.dead .m b{color:var(--faint)}
-#p-persist .foot{padding:11px 14px;color:var(--muted);font-size:11px;line-height:1.5}
-#p-persist .foot b{color:var(--ink);font-weight:400}
 #sres{padding:0 0 10px}
 #sres .det{padding:10px 14px;font-family:"JetBrains Mono",monospace;font-size:11px}
 #sres .det .h{font-size:14px;color:var(--accent);font-weight:700}
@@ -293,7 +276,7 @@ canvas.drag{cursor:grabbing}
 
 <div class="ov" id="brand">
   <div class="eyebrow" id="eyebrow"></div>
-  <h1>Cavit<span class="d">ation</span></h1>
+  <h1>Vamp<span class="d">net</span></h1>
   <div class="tag" id="tag"></div>
   <div class="date mono" id="date">—</div>
   <div id="legend" role="group" aria-label="Filter by chain"></div>
@@ -307,7 +290,6 @@ canvas.drag{cursor:grabbing}
     <button data-p="rank" class="on">Rank</button>
     <button data-p="flow">Flows</button>
     <button data-p="move">Movers</button>
-    <button data-p="persist">Persist</button>
     <button data-p="find">Search</button>
   </div>
   <div id="search"><input id="q" type="text" placeholder="search token…" autocomplete="off"></div>
@@ -315,7 +297,6 @@ canvas.drag{cursor:grabbing}
   <div class="pane on" id="p-rank"><div id="board"></div></div>
   <div class="pane" id="p-flow"></div>
   <div class="pane" id="p-move"></div>
-  <div class="pane" id="p-persist"></div>
   <div class="pane" id="p-find"><div id="sres"></div></div>
 </aside>
 
@@ -954,7 +935,16 @@ function setPlay(v){
   dateEl.classList.toggle('paused',!v&&everPlayed);
 }
 playBtn.addEventListener('click',()=>setPlay(!playing));
+/* Single-key shortcuts must not fire while the user is typing: searching for
+   HOOKR would otherwise hide the panel on the H and reframe the map on the R.
+   Escape leaves the field so the shortcuts come back without reaching for the mouse. */
+const typing=el=>!!el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable);
 addEventListener('keydown',e=>{
+  if(typing(e.target)){
+    if(e.key==='Escape'){e.target.blur();}
+    return;
+  }
+  if(e.metaKey||e.ctrlKey||e.altKey)return;      // leave browser shortcuts alone
   if(e.key===' '){setPlay(!playing);e.preventDefault();}
   if(e.key==='ArrowRight'){setPlay(false);targetT=Math.min(LAST,Math.round(targetT)+1);}
   if(e.key==='ArrowLeft'){setPlay(false);targetT=Math.max(0,Math.round(targetT)-1);}
@@ -981,8 +971,21 @@ rToggle.addEventListener('click',toggleRail);
    finding, so it belongs where the colours are explained. */
 const legend=document.getElementById('legend');
 const chainCount={}; D.nodes.forEach(n=>chainCount[n.chain]=(chainCount[n.chain]||0)+1);
+/* Repeat-winner rate per chain is the ceiling on whether a cohort can work there at
+   all, and it is the finding that explains why one territory carries the map. It
+   rides the chip rather than a panel of its own — the colour and its caveat in the
+   same place, costing no screen. */
+const PERSIST={}; (D.persistence||[]).forEach(r=>PERSIST[r.chain]=r);
+const chainTitle=c=>{
+  const r=PERSIST[c]; if(!r)return `${c}: ${chainCount[c]||0} tokens`;
+  return `${c} — ${r.rate}% repeat-winner rate (${r.repeat} of ${r.traders.toLocaleString()} `+
+         `winning traders won more than once)`+
+         (r.covtot?`. Out-of-time coverage ${r.cov}/${r.covtot}.`:'.')+
+         (r.rate<4?' Below the ~4% floor, a cohort has no headroom here.':'');
+};
 legend.innerHTML=D.chains.map(c=>
-  `<button type="button" class="row on" data-c="${c}" aria-pressed="true">`+
+  `<button type="button" class="row on" data-c="${c}" aria-pressed="true" `+
+  `title="${chainTitle(c).replace(/"/g,'&quot;')}">`+
   `<i style="background:${cc(c).hot};color:${cc(c).hot}"></i>`+
   `<span>${c}</span><b style="font-weight:400;opacity:.6">${chainCount[c]||0}</b></button>`).join('');
 legend.querySelectorAll('.row').forEach(r=>r.addEventListener('click',()=>{
@@ -1015,12 +1018,11 @@ document.getElementById('ticks').innerHTML=[0,.25,.5,.75,1]
    ========================================================================= */
 const board=document.getElementById('board'), ROWS={};
 const panes={rank:document.getElementById('p-rank'),flow:document.getElementById('p-flow'),
-             move:document.getElementById('p-move'),find:document.getElementById('p-find'),
-             persist:document.getElementById('p-persist')};
+             move:document.getElementById('p-move'),find:document.getElementById('p-find')};
+
 const NOTES={rank:'Cohort capital, reordering as you scrub.',
              flow:'Shared wallets reducing one token while increasing another.',
              move:'7-day change in cohort capital at this frame.',
-             persist:'Repeat-winner rate per chain — the ceiling on this whole method.',
              find:'Find a token and see what it feeds, and what feeds it.'};
 let pane='rank', lastPaint=0;
 function showPane(p){
@@ -1105,33 +1107,6 @@ function paintMove(t){
   panes.move.querySelectorAll('.mv[data-id]').forEach(el=>
     el.addEventListener('click',()=>focusToken(el.dataset.id)));
 }
-/* ---------- persistence: the ceiling on whether a cohort can work at all ----------
-   Static for a given build, so it renders once rather than on every rail repaint. */
-const FLOOR=4.0;                                  // repeat-winner rate below which coverage collapsed
-let persistPainted=false;
-function paintPersist(){
-  if(persistPainted)return; persistPainted=true;
-  const rows=(D.persistence||[]).slice().sort((a,b)=>b.rate-a.rate);
-  if(!rows.length){
-    panes.persist.innerHTML='<div class="foot">No persistence data in this build.</div>';
-    return;
-  }
-  const top=Math.max(FLOOR*1.25,...rows.map(r=>r.rate));
-  panes.persist.innerHTML=rows.map(r=>{
-    const col=cc(r.chain).hot, live=r.rate>=FLOOR;
-    return `<div class="pz${live?'':' dead'}">
-      <div class="t"><span>${r.chain}</span><b style="color:${live?col:'var(--faint)'}">${r.rate.toFixed(1)}%</b></div>
-      <div class="bar"><i style="width:${Math.max(1.5,r.rate/top*100)}%;background:${col};opacity:${live?1:.4}"></i>
-        <u style="left:${FLOOR/top*100}%"></u></div>
-      <div class="m"><span><b>${r.traders.toLocaleString()}</b> traders · <b>${r.repeat}</b> repeat</span>
-        <span>${r.covtot?`covered <b>${r.cov}/${r.covtot}</b>`:'—'}</span></div>
-    </div>`;}).join('')+
-    `<div class="foot">Share of a chain's winning traders who won <b>more than once</b>.
-     The line marks <b>${FLOOR}%</b> — below it, every chain we tested covered
-     <b>none</b> of the following month's winners. Solana, the busiest memecoin chain,
-     has the <b>least</b> persistent winners: one repeat winner in 499.</div>`;
-}
-
 /* ---------- (1) search ---------- */
 let query='', picked=null;
 const qEl=document.getElementById('q');
@@ -1171,7 +1146,6 @@ function paintRail(t){
   if(pane==='rank')paintRank(t);
   else if(pane==='flow')paintFlow(t);
   else if(pane==='move')paintMove(t);
-  else if(pane==='persist')paintPersist();
   else paintFind(t);
 }
 
