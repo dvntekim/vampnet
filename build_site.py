@@ -1,5 +1,5 @@
 import json
-SITE  = "https://dvnykim.github.io/vampnet/"
+SITE  = "https://dvntekim.github.io/vampnet/"
 BLURB = ("Where proven onchain capital moves next. 741 wallets that each won four or more "
          "separate memecoins, mapped across 80 tokens and 141 days — built entirely on the "
          "Nansen API.")

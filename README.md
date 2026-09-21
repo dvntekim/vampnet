@@ -6,14 +6,14 @@ Scrub 141 days and watch capital from 741 wallets — each of which won **four o
 separate memecoins** — rotate between 80 tokens across four chains. Ring = market cap,
 glowing core = cohort capital, edges = co-rotation. Only what is moving lights up.
 
-**Live: https://dvnykim.github.io/vampnet/**
+**Live: https://dvntekim.github.io/vampnet/**
 
 ---
 
 ## Run it
 
 ```bash
-git clone https://github.com/dvnykim/vampnet && cd vampnet
+git clone https://github.com/dvntekim/vampnet && cd vampnet
 read -rs -p "Nansen API key: " K && printf 'NANSEN_API_KEY=%s\n' "$K" > .env && chmod 600 .env
 
 python3 make.py --demo        # live build from the API
