@@ -21,8 +21,10 @@ HEAD = r'''<!doctype html>
 <meta property="og:title" content="Vampnet — the onchain attention map">
 <meta property="og:description" content="__BLURB__">
 <meta property="og:image" content="__SITE__og.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<!-- og.png is authored at 2x for retina; the tags state its true size, and the
+     ratio is exactly the 1.91:1 the card slots expect. -->
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1260">
 <meta property="og:image:alt" content="A dark network map of memecoin tokens clustered by chain, sized by market cap, with capital rotations drawn as glowing links between them.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Vampnet — the onchain attention map">
