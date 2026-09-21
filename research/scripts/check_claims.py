@@ -41,6 +41,24 @@ def main():
     for key, c in claims.items():
         if key.startswith("_"):
             continue
+        # Derived from the shipped payload, not from a research run: recompute it
+        # by importing the script that produces it, so a config change to the
+        # renderer surfaces here instead of quietly invalidating the prose.
+        if key == "fresh_below_cap":
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            import fresh_inflows
+            total, below = fresh_inflows.count()
+            checked += 1
+            detail = f"{below:,} of {total:,}"
+            if c["value"] != below:
+                failures.append(
+                    f"{key}: claims.json says {c['value']}, the payload gives {below}")
+            elif c.get("detail") != detail:
+                failures.append(
+                    f"{key}: detail is {c.get('detail')!r}, the payload implies {detail!r}")
+            else:
+                print(f"  ok   {key} = {below} ({detail}) ← data/bubbles80.json")
+            continue
         art = artifact_for(c.get("source", ""))
         if art is None:
             skipped.append((key, c.get("source", "(no source)")))

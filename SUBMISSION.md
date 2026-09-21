@@ -58,9 +58,12 @@ chain-shaped layout could not have represented, let alone discovered.
 
 **Capital arriving in a token nobody is watching yet.** The map guarantees a line to any
 rotation out of a top-20 name into a position the cohort opened in the last fortnight,
-*whether or not it wins the day's volume contest* — 861 of the 1,062 such rotations in this
-window sit below the top-N edge cap that every graph of this kind applies, which is to say
-the tool that draws only the biggest flows is structurally blind to the earliest ones. The
+*whether or not it wins the day's volume contest* — 373 of the 449 such rotations in this
+window, 83% of them, sit below the top-10 edge cap that every graph of this kind applies,
+which is to say the tool that draws only the biggest flows is structurally blind to the
+earliest ones. `research/scripts/fresh_inflows.py` counts it by replaying the renderer's
+own edge selection over every frame, and `check_claims.py` fails the build if the two
+disagree. The
 clearest case in the data: on 31 August, **15 wallets moved from PONS — the largest name on
 the map at $49.5M peak — into RAM, on RAM's first day of existence in the cohort**.
 
