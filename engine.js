@@ -109,7 +109,7 @@ const shown=n=>chainOn[n.chain];
    A position the cohort opened days ago, being fed by a name it has held for
    months, is the most actionable thing this map can show — and it is almost
    always small in absolute terms, so it is precisely what a top-N edge cap
-   throws away: 373 of the 449 in this window fall below it, 83% of them, which
+   throws away: 387 of the 467 in this window fall below it, 83% of them, which
    research/scripts/fresh_inflows.py counts by replaying this selection frame by
    frame. They are drawn regardless. */
 const ageAt=(n,t)=>t-n.first;

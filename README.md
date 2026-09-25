@@ -176,7 +176,7 @@ one that spans more than one chain.
 
 **Fresh inflow.** A token the cohort entered days ago, being fed by a name it has held for
 months, is the most actionable thing here — and it is almost always small in absolute
-terms, so a top-N edge cap is exactly what throws it away: **373 of the 449 such
+terms, so a top-N edge cap is exactly what throws it away: **387 of the 467 such
 rotations in this window fall below that cap** — 83% of them
 ([`fresh_inflows.py`](research/scripts/fresh_inflows.py) replays the renderer's own edge
 selection frame by frame to count it). So they are drawn regardless of it, in the

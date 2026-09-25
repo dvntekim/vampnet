@@ -1,0 +1,330 @@
+{
+  "measured": "2026-09-25",
+  "protocol": "frozen-cohort out-of-time",
+  "train_window": {
+    "from": "2026-08-05",
+    "to": "2026-09-04"
+  },
+  "test_window": {
+    "from": "2026-09-05",
+    "to": "2026-09-24"
+  },
+  "chains": [
+    "robinhood",
+    "bnb",
+    "base",
+    "solana"
+  ],
+  "recurrence": 4,
+  "cohort_wallets": 15,
+  "trader_pool": 6784,
+  "train_winners": 91,
+  "test_winners": 35,
+  "covered": 16,
+  "coverage_pct": 46,
+  "by_chain": {
+    "base": {
+      "covered": 2,
+      "total": 5,
+      "pct": 40
+    },
+    "bnb": {
+      "covered": 2,
+      "total": 7,
+      "pct": 29
+    },
+    "robinhood": {
+      "covered": 6,
+      "total": 9,
+      "pct": 67
+    },
+    "solana": {
+      "covered": 6,
+      "total": 14,
+      "pct": 43
+    }
+  },
+  "credits_used": 581,
+  "detail": [
+    {
+      "symbol": "ASTEROID",
+      "chain": "robinhood",
+      "price_change": 2.2799121128175557,
+      "covered": true,
+      "first_held": "2026-09-12",
+      "peak_wallets": 2
+    },
+    {
+      "symbol": "BEM",
+      "chain": "bnb",
+      "price_change": 3.378093399952392,
+      "covered": true,
+      "first_held": "2026-09-21",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "GOLDEN",
+      "chain": "robinhood",
+      "price_change": 10.047805771070383,
+      "covered": true,
+      "first_held": "2026-09-15",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "HOTDOG",
+      "chain": "robinhood",
+      "price_change": 1.161143724401378,
+      "covered": true,
+      "first_held": "2026-09-15",
+      "peak_wallets": 2
+    },
+    {
+      "symbol": "MANY",
+      "chain": "robinhood",
+      "price_change": 4.0532765030435085,
+      "covered": true,
+      "first_held": "2026-09-12",
+      "peak_wallets": 4
+    },
+    {
+      "symbol": "MINI",
+      "chain": "solana",
+      "price_change": 3.72429624086862,
+      "covered": true,
+      "first_held": "2026-09-10",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "NOVAAI",
+      "chain": "robinhood",
+      "price_change": 1.543545163584911,
+      "covered": true,
+      "first_held": "2026-09-18",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "ORBIO",
+      "chain": "robinhood",
+      "price_change": 6.501724100170064,
+      "covered": true,
+      "first_held": "2026-09-11",
+      "peak_wallets": 3
+    },
+    {
+      "symbol": "OTC",
+      "chain": "solana",
+      "price_change": 1.3137036462554998,
+      "covered": true,
+      "first_held": "2026-09-11",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "PURR",
+      "chain": "solana",
+      "price_change": 3.1359078270808185,
+      "covered": true,
+      "first_held": "2026-09-11",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "RAYCAT",
+      "chain": "solana",
+      "price_change": 12.33277318685936,
+      "covered": true,
+      "first_held": "2026-09-11",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "ROUTER",
+      "chain": "solana",
+      "price_change": 8.294536020616453,
+      "covered": true,
+      "first_held": "2026-09-11",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "STONKEX",
+      "chain": "base",
+      "price_change": 1.857306521317481,
+      "covered": true,
+      "first_held": "2026-09-06",
+      "peak_wallets": 2
+    },
+    {
+      "symbol": "STONX",
+      "chain": "base",
+      "price_change": 4.554662329077501,
+      "covered": true,
+      "first_held": "2026-09-13",
+      "peak_wallets": 4
+    },
+    {
+      "symbol": "ZCAT",
+      "chain": "solana",
+      "price_change": 2.061573824313081,
+      "covered": true,
+      "first_held": "2026-09-12",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "\u4f2f\u4e50",
+      "chain": "bnb",
+      "price_change": 23.83696864738727,
+      "covered": true,
+      "first_held": "2026-09-07",
+      "peak_wallets": 1
+    },
+    {
+      "symbol": "AIOZ",
+      "chain": "bnb",
+      "price_change": 1.081724878196875,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "BTC",
+      "chain": "solana",
+      "price_change": 3.603976400080725,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "CRIME",
+      "chain": "solana",
+      "price_change": 11.262760507466144,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "CX",
+      "chain": "solana",
+      "price_change": 1.4116206227146957,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "DOGO",
+      "chain": "robinhood",
+      "price_change": 1.0567591896354802,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "EDEL",
+      "chain": "solana",
+      "price_change": 1.7585144333975562,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "HAROLD",
+      "chain": "solana",
+      "price_change": 4.477298386921784,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "KAI",
+      "chain": "robinhood",
+      "price_change": 2.093482239082018,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "LSK",
+      "chain": "base",
+      "price_change": 2.45870999559222,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "MM",
+      "chain": "solana",
+      "price_change": 1.1392684709490968,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "MSETH",
+      "chain": "base",
+      "price_change": 1.0069232275441844,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "RHEA",
+      "chain": "bnb",
+      "price_change": 4.901960975483395,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "RHEA",
+      "chain": "solana",
+      "price_change": 4.878888119769262,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "SDM",
+      "chain": "bnb",
+      "price_change": 4.979429626179816,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "SENTRY",
+      "chain": "robinhood",
+      "price_change": 1.2836183588296282,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "TART",
+      "chain": "bnb",
+      "price_change": 1.2705937320226786,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "TEXTIT",
+      "chain": "solana",
+      "price_change": 1.5203961522141314,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "TRUE",
+      "chain": "base",
+      "price_change": 3.9220274908906,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    },
+    {
+      "symbol": "\u8774\u8776\u4eba\u751f",
+      "chain": "bnb",
+      "price_change": 2.906444357191296,
+      "covered": false,
+      "first_held": null,
+      "peak_wallets": 0
+    }
+  ]
+}

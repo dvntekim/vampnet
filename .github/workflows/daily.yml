@@ -9,7 +9,7 @@ on:
     inputs:
       cap:
         description: "Credit ceiling for this run"
-        default: "1400"
+        default: "3200"
 
 concurrency:
   group: daily-refresh
@@ -21,7 +21,7 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 90          # a full run takes ~35 min
+    timeout-minutes: 150         # ~2.5x the wallets of the old top-300 sweep
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +32,10 @@ jobs:
       - name: Refresh from the Nansen API
         env:
           NANSEN_API_KEY: ${{ secrets.NANSEN_API_KEY }}
-        run: python3 make.py --daily --cap ${{ github.event.inputs.cap || '1400' }}
+        # 1400 was sized for the old top-300 refresh. The whole cohort needs
+        # more, and the cap stopping early is indistinguishable from the bug it
+        # was meant to guard against: a half-fetched day loses edges silently.
+        run: python3 make.py --daily --cap ${{ github.event.inputs.cap || '3200' }}
 
       - name: Verify the build before publishing
         # Same gate the PR check runs, so the two cannot drift apart.

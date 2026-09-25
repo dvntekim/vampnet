@@ -1,5 +1,6 @@
 """Build the front-end payload: nodes, activity, time-windowed edges, clustered layout."""
 import json, math, random, collections, statistics as stx
+import datetime as _dt
 
 STABLE={"USDC","USDT","USDG","USDE","USD1","USAD","PYUSD","RLUSD","DAI","FDUSD","BUSD","WETH",
         "ETH","WBNB","BNB","WBTC","BTC","BTCB","CBBTC","SOL","WSOL","DSOL","JITOSOL","MSOL",
@@ -120,6 +121,43 @@ def _build(idx, sym, mcser, top_n=26, min_peak=30000):
         if k not in seen: kept.append(e); seen.add(k)
     edges=kept[:CAP]
 
+    # ---- TRIM to where the map is worth looking at -------------------------
+    # The trim above only drops frames before any token exists, which is not the
+    # same as a frame worth showing: two tokens holding $0.1M with no rotation
+    # between them is a legibly empty canvas. Measured on the 141-day window, the
+    # first 63 frames carried no edge at all and 69 of 141 carried fewer than
+    # five — half the scrubber was dead screen, and dragging it was the first
+    # thing a visitor did.
+    #
+    # Rotations are what this product is for, so legibility is defined by them
+    # rather than by token count or capital. A short run-in keeps tokens visibly
+    # arriving before they start rotating, so the opening frame is not abrupt.
+    # The run happens partway through the current day, so the last frame holds a
+    # few hours of balances rather than a day's. It looked like a collapse — the
+    # final frame carried 15 rotations where the day before carried 90 — and
+    # since the engine opens on the newest frame, that partial day was the first
+    # thing anyone saw. Drop it; the next run re-fetches it complete.
+    while len(days) > 2 and days[-1] >= _dt.date.today().isoformat():
+        days = days[:-1]
+        for e in edges: e["w"] = e["w"][:-1]
+        for n in nodes:
+            for k in ("usd","wal","mc","act"): n[k] = n[k][:-1]
+
+    live=next((i for i in range(len(days))
+               if sum(1 for e in edges if e["w"][i]>=2)>=LEGIBLE_EDGES), 0)
+    cut=max(0, live-RUN_IN_DAYS)
+    if cut:
+        days=days[cut:]
+        for e in edges: e["w"]=e["w"][cut:]
+        for n in nodes:
+            for k in ("usd","wal","mc","act"): n[k]=n[k][cut:]
+            # A token that predates the cut is not newly entered — it is simply
+            # already there. Clamping `first` to 0 would make the engine tag it
+            # NEW for the first fortnight of the timeline and draw it a birth
+            # animation it never had. Park it beyond the newness horizon instead.
+            n["first"]=n["first"]-cut if n["first"]>=cut else -(NEW_DAYS+1)
+        edges=[e for e in edges if max(e["w"])>=2]
+
     CH=sorted({n["chain"] for n in nodes},
               key=lambda c:-sum(1 for n in nodes if n["chain"]==c))
     layout(nodes, edges)
@@ -137,6 +175,14 @@ def _build(idx, sym, mcser, top_n=26, min_peak=30000):
 import gzip
 
 CACHE_TOKENS = 150      # tokens kept with per-wallet detail
+# How many simultaneous rotations make a frame worth opening on, and how much
+# run-in to keep before it. Raising LEGIBLE_EDGES starts the timeline later and
+# denser; RUN_IN_DAYS buys back a few frames of tokens arriving first.
+LEGIBLE_EDGES = 3
+RUN_IN_DAYS = 5
+# Must match CONFIG.newDays in build_site.py — a token older than the trim is
+# parked beyond this horizon so it is never mistaken for a new entry.
+NEW_DAYS = 14
 
 
 def _sig(x):

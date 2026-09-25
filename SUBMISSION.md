@@ -58,7 +58,7 @@ chain-shaped layout could not have represented, let alone discovered.
 
 **Capital arriving in a token nobody is watching yet.** The map guarantees a line to any
 rotation out of a top-20 name into a position the cohort opened in the last fortnight,
-*whether or not it wins the day's volume contest* — 373 of the 449 such rotations in this
+*whether or not it wins the day's volume contest* — 387 of the 467 such rotations in this
 window, 83% of them, sit below the top-10 edge cap that every graph of this kind applies,
 which is to say the tool that draws only the biggest flows is structurally blind to the
 earliest ones. `research/scripts/fresh_inflows.py` counts it by replaying the renderer's

@@ -62,13 +62,13 @@
         "verified": "2026-09-20"
     },
     "fresh_below_cap": {
-        "value": 373,
+        "value": 387,
         "unit": "",
         "label": "fresh inflows below the cap",
-        "detail": "373 of 449",
-        "scope": "Token-day events across the 141-frame window where a token the cohort entered within 14 days receives a rotation of at least 3 shared wallets from an established top-20 name. Counted against the top-10 edge cap the renderer would otherwise apply, replaying engine.js's own edgeAt selection frame by frame. Counts events, not distinct pairs: one pair persisting over several days counts once per day, which is what the cap discards it on.",
+        "detail": "387 of 467",
+        "scope": "Token-day events across the 82-frame window where a token the cohort entered within 14 days receives a rotation of at least 3 shared wallets from an established top-20 name. Counted against the top-10 edge cap the renderer would otherwise apply, replaying engine.js's own edgeAt selection frame by frame. Counts events, not distinct pairs: one pair persisting over several days counts once per day, which is what the cap discards it on.",
         "source": "data/bubbles80.json",
         "script": "research/scripts/fresh_inflows.py",
-        "verified": "2026-09-21"
+        "verified": "2026-09-25"
     }
 }

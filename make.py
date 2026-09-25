@@ -225,7 +225,12 @@ def step6_render():
 # ---------------------------------------------------------------------------
 CACHE = lambda: D("cache.json.gz")
 WINDOW_DAYS = 141          # rolling timeline length
-OVERLAP_DAYS = 1           # re-fetch this much to absorb late-settling balances
+# Re-fetch this much history every run. One day was too thin: a run that failed,
+# was cancelled, or simply started late left a hole the next run stepped straight
+# over, and 2026-09-19 and -21 ended up with 824 and 423 holder-slots against a
+# normal 5,900. A wallet's balances for a short window fit in one page whatever
+# the span, so widening this costs nothing and makes a missed day self-healing.
+OVERLAP_DAYS = 4
 
 
 def _wallet_capital(idx, sym):
@@ -253,9 +258,21 @@ def step_daily(cfg, B):
     days = sorted({d for k in idx for d in idx[k]})
     log("1/4", f"cache: {len(days)} days ({days[0]} → {days[-1]}), {len(idx)} tokens")
 
+    # Every wallet, ranked only so that a credit cap bites the smallest first.
+    #
+    # This used to take the top 300 by capital, which was the wrong axis: edges
+    # are counted in SHARED WALLETS, not dollars, so dropping the 439-wallet tail
+    # removed their co-occurrences outright. The tail holds 11% of the capital and
+    # accounted for far more than 11% of the rotations — daily edge counts fell
+    # from ~150 to 20 and the map opened almost bare.
+    #
+    # It is also barely cheaper. A median wallet holds ~3 drawn rows a day, so one
+    # 500-row page covers a week for nearly all of them; the old config spent its
+    # budget on a second page that was usually empty rather than on a first page
+    # for everyone.
     cap = _wallet_capital(idx, sym)
     ranked = [w for w, _ in cap.most_common()]
-    wallets = ranked[:cfg["wallets"]]
+    wallets = ranked[:cfg["wallets"]] if cfg.get("wallets") else ranked
     # only re-fetch chains a wallet is actually active on
     active = collections.defaultdict(set)
     for key, by_day in idx.items():
@@ -263,7 +280,8 @@ def step_daily(cfg, B):
             for wallet in holders:
                 active[wallet].add(key[0])
 
-    since = (dt.date.fromisoformat(days[-1]) - dt.timedelta(days=OVERLAP_DAYS)).isoformat()
+    since = cfg.get("since") or (
+        dt.date.fromisoformat(days[-1]) - dt.timedelta(days=OVERLAP_DAYS)).isoformat()
     window = {"from": since, "to": dt.date.today().isoformat()}
     log("2/4", f"refreshing top {len(wallets)} wallets over {window['from']} → {window['to']}")
 
@@ -344,8 +362,10 @@ PRESETS={
    "min_mcap":5_000_000,"min_vol":2_000_000,"min_gain":2.0,"lb_depth":1000,"recurrence":4,
    "max_wallets":None,"evm_chains":["robinhood","bnb","base"],"pages":6,"tokens":80,
    "min_peak":300_000,"cap":9000,"resume":True},
+ # wallets:None = the whole cohort. step_daily explains why that is not the
+ # extravagance it looks like. The cap is sized for it.
  "daily":{"from":"2026-05-01","to":"2026-09-18",
-   "wallets":300,"pages":2,"tokens":80,"min_peak":300_000,"cap":2500},
+   "wallets":None,"pages":2,"tokens":80,"min_peak":300_000,"cap":3200},
 }
 if __name__=="__main__":
     ap=argparse.ArgumentParser()
@@ -355,19 +375,40 @@ if __name__=="__main__":
     g.add_argument("--daily",action="store_true",
                    help="incremental refresh of the highest-capital wallets")
     ap.add_argument("--cap",type=int,help="hard credit ceiling for this run")
+    ap.add_argument("--since",help="--daily only: re-fetch from this date instead of "
+                    "the last cached day, to repair a gap (YYYY-MM-DD)")
     a=ap.parse_args()
     t0=time.time()
     if a.daily:
         cfg=dict(PRESETS["daily"])
         if a.cap: cfg["cap"]=a.cap
+        if a.since: cfg["since"]=a.since
         B=Budget(cfg["cap"])
         print(f"Vampnet — DAILY refresh   credit cap {cfg['cap']}\n")
         step_daily(cfg,B)
         print(f"\nDone in {time.time()-t0:.0f}s · {B.used} credits used")
     elif a.build:
+        # Prefer the daily cache. It is the live dataset — --daily merges new
+        # days into it — whereas cohort_v2_balances.json is frozen at whenever
+        # --full last ran. Rebuilding from the raw dump silently reverted the
+        # site by a week and threw away every daily refresh since.
         print("Rebuilding site from cached data (0 credits)…")
-        bal=load([D("cohort_v2_balances.json")]); mc=json.load(open(D("mcap_deep.json")))
-        step5_payload(PRESETS["full"], bal, mc, len(bal)); step6_render()
+        if os.path.exists(CACHE()):
+            idx, sym = load_cache(CACHE())
+            days = sorted({d for k in idx for d in idx[k]})
+            print(f"  source: {os.path.basename(CACHE())} "
+                  f"({len(days)} days, {days[0]} → {days[-1]})")
+            mc = json.load(open(D("mcap_deep.json")))
+            cfg = PRESETS["daily"]
+            p = stamp(build_from_index(idx, sym, mc, top_n=cfg["tokens"],
+                                       min_peak=cfg["min_peak"]),
+                      carried_cohort(len(_wallet_capital(idx, sym))), 32128)
+            json.dump(p, open(D("bubbles80.json"), "w"), separators=(",", ":"))
+        else:
+            print("  source: cohort_v2_balances.json (no daily cache yet)")
+            bal=load([D("cohort_v2_balances.json")]); mc=json.load(open(D("mcap_deep.json")))
+            step5_payload(PRESETS["full"], bal, mc, len(bal))
+        step6_render()
     else:
         cfg=dict(PRESETS["demo" if a.demo else "full"])
         if a.cap: cfg["cap"]=a.cap

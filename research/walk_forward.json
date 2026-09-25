@@ -1,0 +1,102 @@
+{
+  "measured": "2026-09-25",
+  "protocol": "walk-forward frozen-cohort, non-overlapping test windows",
+  "test_days": 20,
+  "recurrence": 4,
+  "chains": [
+    "robinhood",
+    "bnb",
+    "base",
+    "solana"
+  ],
+  "windows": [
+    {
+      "freeze": "2026-06-25",
+      "to": "2026-07-15",
+      "ok": false,
+      "reason": "token-screener returned 400: {'error': 'Bad Request', 'message': \"The requested date range requires daily data, which has a retention period of 2 months. The 'from' date (2026-05-26) is outside this retention window. Please use a more recent date (after 2026-07-2...\", 'code': 'invalid_field_value', 'status': 400, 'request_id': '1ab5a43de93cd136c94f9008c6783569', 'doc_url': 'https://docs.nansen.ai/getting-started/error-handling#invalid_field_value'}"
+    },
+    {
+      "freeze": "2026-07-15",
+      "to": "2026-08-04",
+      "ok": false,
+      "reason": "token-screener returned 400: {'error': 'Bad Request', 'message': \"The requested date range requires daily data, which has a retention period of 2 months. The 'from' date (2026-06-15) is outside this retention window. Please use a more recent date (after 2026-07-2...\", 'code': 'invalid_field_value', 'status': 400, 'request_id': '8146146b613d156dd494d54aad15e121', 'doc_url': 'https://docs.nansen.ai/getting-started/error-handling#invalid_field_value'}"
+    },
+    {
+      "freeze": "2026-08-04",
+      "to": "2026-08-24",
+      "ok": false,
+      "reason": "token-screener returned 400: {'error': 'Bad Request', 'message': \"The requested date range requires daily data, which has a retention period of 2 months. The 'from' date (2026-07-05) is outside this retention window. Please use a more recent date (after 2026-07-2...\", 'code': 'invalid_field_value', 'status': 400, 'request_id': '1ae6d462050ce244d4ebc75ec4f13a2d', 'doc_url': 'https://docs.nansen.ai/getting-started/error-handling#invalid_field_value'}"
+    },
+    {
+      "freeze": "2026-08-24",
+      "to": "2026-09-13",
+      "ok": false,
+      "reason": "token-screener returned 400: {'error': 'Bad Request', 'message': \"The requested date range requires daily data, which has a retention period of 2 months. The 'from' date (2026-07-25) is outside this retention window. Please use a more recent date (after 2026-07-2...\", 'code': 'invalid_field_value', 'status': 400, 'request_id': 'b15abd10685ea16f8c05b079ab1e7151', 'doc_url': 'https://docs.nansen.ai/getting-started/error-handling#invalid_field_value'}"
+    },
+    {
+      "freeze": "2026-09-04",
+      "to": "2026-09-24",
+      "ok": true,
+      "train_window": {
+        "from": "2026-08-05",
+        "to": "2026-09-04"
+      },
+      "test_window": {
+        "from": "2026-09-05",
+        "to": "2026-09-24"
+      },
+      "cohort_wallets": 15,
+      "trader_pool": 6784,
+      "train_winners": 91,
+      "test_winners": 35,
+      "covered": 16,
+      "coverage_pct": 46,
+      "by_chain": {
+        "base": {
+          "covered": 2,
+          "total": 5,
+          "pct": 40
+        },
+        "bnb": {
+          "covered": 2,
+          "total": 7,
+          "pct": 29
+        },
+        "robinhood": {
+          "covered": 6,
+          "total": 9,
+          "pct": 67
+        },
+        "solana": {
+          "covered": 6,
+          "total": 14,
+          "pct": 43
+        }
+      },
+      "credits_used": 581,
+      "artifact": "research/out_of_time_2026-09-04.json"
+    }
+  ],
+  "pooled": {
+    "robinhood": {
+      "covered": 6,
+      "total": 9,
+      "pct": 67,
+      "ci95": [
+        35,
+        88
+      ]
+    },
+    "all_chains": {
+      "covered": 16,
+      "total": 35,
+      "pct": 46,
+      "ci95": [
+        30,
+        62
+      ]
+    }
+  },
+  "credits_used": 581
+}
