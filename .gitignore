@@ -15,3 +15,5 @@ __pycache__/
 *.pyc
 
 # generated site (rebuild with: python3 make.py --build)
+.DS_Store
+Claude outputs/
