@@ -109,9 +109,9 @@ const shown=n=>chainOn[n.chain];
    A position the cohort opened days ago, being fed by a name it has held for
    months, is the most actionable thing this map can show — and it is almost
    always small in absolute terms, so it is precisely what a top-N edge cap
-   throws away: 387 of the 467 in this window fall below it, 83% of them, which
-   research/scripts/fresh_inflows.py counts by replaying this selection frame by
-   frame. They are drawn regardless. */
+   throws away: more than four in five of them fall below it, which
+   research/scripts/fresh_inflows.py counts exactly by replaying this selection
+   frame by frame. They are drawn regardless. */
 const ageAt=(n,t)=>t-n.first;
 const isNew=(n,t)=>{const a=ageAt(n,t);return a>=0&&a<=CONFIG.newDays;};
 /* The feeder has to be a name worth following, not merely an older one: capital

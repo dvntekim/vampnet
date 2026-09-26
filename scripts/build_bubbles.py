@@ -137,7 +137,27 @@ def _build(idx, sym, mcser, top_n=26, min_peak=30000):
     # final frame carried 15 rotations where the day before carried 90 — and
     # since the engine opens on the newest frame, that partial day was the first
     # thing anyone saw. Drop it; the next run re-fetches it complete.
-    while len(days) > 2 and days[-1] >= _dt.date.today().isoformat():
+    # Two effects make the newest frames untrustworthy, and the engine opens on
+    # the newest one. The run happens partway through the current day, so that
+    # day holds hours rather than a day of balances; and balances settle late, so
+    # even the day before can arrive thin. Measured: a partial day showed 15
+    # rotations against 90 the day before, and the first fully-fetched day after
+    # it still showed 40 against ~100.
+    #
+    # Rather than hardcode "drop two days" — which throws away a good frame when
+    # the data did settle — drop trailing frames that are thin RELATIVE to the
+    # week behind them. A genuinely quiet day is also a poor thing to open on,
+    # so the rule does no harm when it fires on one.
+    def _edges_on(i):
+        return sum(1 for e in edges if e["w"][i] >= 2)
+    while len(days) > 10:
+        if days[-1] >= _dt.date.today().isoformat():
+            pass                                   # today is partial by definition
+        else:
+            prior = sorted(_edges_on(i) for i in range(len(days) - 8, len(days) - 1))
+            median = prior[len(prior) // 2]
+            if not median or _edges_on(len(days) - 1) >= median * SETTLED_FRACTION:
+                break
         days = days[:-1]
         for e in edges: e["w"] = e["w"][:-1]
         for n in nodes:
@@ -180,6 +200,9 @@ CACHE_TOKENS = 150      # tokens kept with per-wallet detail
 # denser; RUN_IN_DAYS buys back a few frames of tokens arriving first.
 LEGIBLE_EDGES = 3
 RUN_IN_DAYS = 5
+# A trailing frame carrying less than this share of the previous week's median
+# rotation count is treated as not yet settled and dropped.
+SETTLED_FRACTION = 0.55
 # Must match CONFIG.newDays in build_site.py — a token older than the trim is
 # parked beyond this horizon so it is never mistaken for a new entry.
 NEW_DAYS = 14

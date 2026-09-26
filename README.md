@@ -176,10 +176,11 @@ one that spans more than one chain.
 
 **Fresh inflow.** A token the cohort entered days ago, being fed by a name it has held for
 months, is the most actionable thing here — and it is almost always small in absolute
-terms, so a top-N edge cap is exactly what throws it away: **387 of the 467 such
-rotations in this window fall below that cap** — 83% of them
+terms, so a top-N edge cap is exactly what throws it away: **more than four in five of those
+rotations fall below that cap**
 ([`fresh_inflows.py`](research/scripts/fresh_inflows.py) replays the renderer's own edge
-selection frame by frame to count it). So they are drawn regardless of it, in the
+selection frame by frame and prints the exact count for the current data; it is recorded in
+[claims.json](research/claims.json) and re-checked on every refresh). So they are drawn regardless of it, in the
 reserved accent, into a bracketed node tagged with its age. The feeder has to be a top-20
 name, or the signal is just churn. The **Fresh** panel ranks them by how much standing the
 feeders have, so `PONS → RAM` on RAM's first day outranks a larger flow between two
