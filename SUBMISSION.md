@@ -103,6 +103,20 @@ prediction. That is a harder thing to demo and a much harder thing to argue with
 readout of how fast *you* are moving through time, held to 3px so the one interaction we
 most want judged never degrades into looking broken.
 
+**Tested against a winner list we did not choose.** Every coverage figure above uses test
+winners selected by our own screener thresholds, and a fair reader can ask whether those
+thresholds were tuned, consciously or not, toward coins the cohort happened to hold. So we
+took the list from outside: the daily memecoin recaps [@mellometrics](https://x.com/mellometrics)
+published on 22–24 September, transcribed verbatim, editorial, dated, and written with no
+knowledge of this project. Of the **11 distinct Robinhood-chain coins called, the cohort was
+already holding 7 — and all 7 of them before the recap was published, a median of 6 days
+earlier.** PRISM by 50 days, BUCKET by 46, AGI by 28. We missed CREDITS, PRIORS, HADES and
+JOLLY. 14 of the calls land on Solana, where the repeat-winner rate is 0.2% and we claim
+nothing. `research/scripts/independent_calls.py` reproduces it; tickers are disambiguated
+against the market cap each recap states, because the same ticker exists on several chains,
+and the 21 calls that could not be resolved are reported as unresolved rather than assumed
+either way.
+
 ---
 
 ## 3. Functionality & Workability — 25%

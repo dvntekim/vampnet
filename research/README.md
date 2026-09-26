@@ -26,6 +26,7 @@ pipeline.
 |---|---|
 | [scripts/out_of_time.py](scripts/out_of_time.py) | The coverage headline. Builds a cohort that provably cannot see the test period, then measures what it held. `--write-claims` updates `claims.json` in place |
 | [scripts/coverage.py](scripts/coverage.py) | Leave-one-out coverage, precision lift, lead time, first sightings |
+| [scripts/independent_calls.py](scripts/independent_calls.py) | Coverage against @mellometrics' published daily recaps — a winner list this project did not choose, and whether the cohort held each coin before it was called |
 | [scripts/walk_forward.py](scripts/walk_forward.py) | Re-runs the frozen-cohort test at several freeze dates and records which ones the API still has data for |
 | [scripts/fresh_inflows.py](scripts/fresh_inflows.py) | Counts the fresh inflows a top-N edge cap would discard, by replaying the renderer's own edge selection |
 | [scripts/fresh_signal_backtest.py](scripts/fresh_signal_backtest.py) | Every fresh-inflow signal and what the token's market cap did next. In-sample: for picking illustrations, not for claims |

@@ -70,5 +70,15 @@
         "source": "data/bubbles80.json",
         "script": "research/scripts/fresh_inflows.py",
         "verified": "2026-09-25"
+    },
+    "independent_calls": {
+        "value": 64,
+        "unit": "%",
+        "label": "third-party coverage",
+        "detail": "7 of 11",
+        "scope": "Coverage against a winner list this project did not choose: the daily memecoin recaps published by @mellometrics on 22-24 Sep 2026, transcribed verbatim. Of the 11 distinct Robinhood-chain coins called, the cohort already held 7 — and every one of those was held BEFORE the recap was published, median 6 days earlier. Tickers were disambiguated against the market cap each recap states, since the same ticker exists on several chains; 34 of 55 calls resolved to a token and the rest are reported unresolved rather than assumed. Missed: CREDITS, HADES, JOLLY, PRIORS. Scoped to robinhood because the repeat-winner rate on solana is 0.2% and no cohort has headroom there — 14 of the calls land on solana and are outside what this tool claims to cover.",
+        "source": "research/independent_calls.json",
+        "script": "research/scripts/independent_calls.py",
+        "verified": "2026-09-26"
     }
 }
