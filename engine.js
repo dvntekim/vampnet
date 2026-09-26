@@ -3,6 +3,7 @@
       Nodes never move in world space: scrubbing animates size/glow/edges only.
    ========================================================================= */
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d',{alpha:false});
+const brand=document.getElementById('brand');   // masthead; fit() measures it on mobile
 const N=D.days.length, LAST=N-1, NODE={};
 D.nodes.forEach(n=>NODE[n.id]=n);
 const IN={}, OUT={};                       // adjacency for the hover card
@@ -58,7 +59,13 @@ function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight
   cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
 /* Fit every node inside the *visible* area — the right rail covers part of the
    canvas, so the usable box is inset on that side and the camera centres on it. */
-const MOBILE=()=>matchMedia('(max-width:860px)').matches;
+/* matchMedia constructs a fresh MediaQueryList on every call and draw() asked
+   once a frame, which is a per-frame allocation and a style query for a value
+   that changes only when the window does. Hold one and let it report. */
+const MOBILE_MQ=matchMedia('(max-width:860px)');
+let IS_MOBILE=MOBILE_MQ.matches;
+MOBILE_MQ.addEventListener('change',e=>{IS_MOBILE=e.matches;resize();fit(true);});
+const MOBILE=()=>IS_MOBILE;
 /* horizontal extent of canvas the rail does not sit on top of */
 const railOpen=()=>!rail.classList.contains('hidden');
 let VIEWL=0, VIEWR=0;
@@ -72,7 +79,17 @@ function fit(animate){
   const mob=MOBILE(), open=!rail.classList.contains('hidden');
   const railW = (open&&!mob) ? rail.offsetWidth  : 0;
   const railH = (open&&mob)  ? rail.offsetHeight : 0;
-  const padL=34, padR=railW+34, padT=mob?152:118, padB=railH+(mob?28:104);
+  /* padT clears the masthead. On a phone that is the wordmark, the claim, the
+     chain chips, the narrative and the credibility row stacked, which measures
+     far more than the 152px this used to assume — the map was being centred
+     underneath its own header. Measure it instead of guessing. */
+  /* On a short viewport the masthead is deliberately smaller, but cap the
+     reservation anyway so a tall header can never squeeze the map to nothing. */
+  const brandH = mob ? Math.min(H*(H<500?0.30:0.42),
+                                brand.getBoundingClientRect().height+18) : 0;
+  const padL=mob?16:34, padR=railW+(mob?16:34),
+        padT=mob?Math.max(120,brandH):118,
+        padB=railH+(mob?96:104);
   const availW=Math.max(200,W-padL-padR), availH=Math.max(200,H-padT-padB);
   /* Bound the node CENTRES and add one modest world-space margin. Reserving each
      node's largest-ever ring over-shrinks the whole map for a handful of mega-caps. */
@@ -381,10 +398,23 @@ function draw(t){
         const tag=`NEW ${Math.max(0,Math.round(ageAt(n,t)))}D`;
         ctx.font=`700 9px "JetBrains Mono",monospace`;
         const tw=textW(tag,9);
-        ctx.globalAlpha=dim(n.id);ctx.fillStyle=ACCENT;
-        ctx.fillRect(x-tw/2-4,y-mr-14,tw+8,11);
-        ctx.fillStyle=VOID;ctx.textAlign='center';
-        ctx.fillText(tag,x,y-mr-5.5);
+        /* These were drawn without consulting the label collision set, so two
+           new tokens entering close together stacked their tags into an
+           unreadable smear — which a phone, where the same map is a third of
+           the width, hits far more often. Claim the box like any other label:
+           ORDER runs highest-rank first, so the bigger token keeps the spot. */
+        const tb=[x-tw/2-5,y-mr-15,x+tw/2+5,y-mr-2];
+        let tclash=false;
+        for(const b of LABELS){
+          if(tb[0]<b[2]&&tb[2]>b[0]&&tb[1]<b[3]&&tb[3]>b[1]){tclash=true;break;}
+        }
+        if(!tclash){
+          LABELS.push(tb);
+          ctx.globalAlpha=dim(n.id);ctx.fillStyle=ACCENT;
+          ctx.fillRect(x-tw/2-4,y-mr-14,tw+8,11);
+          ctx.fillStyle=VOID;ctx.textAlign='center';
+          ctx.fillText(tag,x,y-mr-5.5);
+        }
         ctx.font=`600 ${labelFs}px "Chakra Petch",sans-serif`;   // restore label font
       }
     }
@@ -943,5 +973,13 @@ function paintRail(t,force){
   els.forEach((el,i)=>setTimeout(()=>el.classList.add('on'),i*150));
   setTimeout(()=>document.getElementById('boot').classList.add('done'),900);
 })();
-addEventListener('resize',()=>{resize();fit(true);});
+/* On a phone the panel and the map cannot both have the screen: the sheet is
+   half the viewport, and what is left is not enough map to read. The map is the
+   product, so the sheet starts down and the toggle invites it back up. On a
+   desktop there is width for both and nothing changes. */
+if(MOBILE()&&railOpen())toggleRail();
+
+/* An orientation change resizes the window but the new dimensions are not
+   readable until the next frame, so refit after one rather than on the event. */
+addEventListener('resize',()=>{resize();requestAnimationFrame(()=>fit(true));});
 resize(); rebuildOrder(); fit(false); requestAnimationFrame(frame);

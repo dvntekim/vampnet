@@ -283,48 +283,107 @@ canvas.drag{cursor:grabbing}
    the map keeps the upper half of the viewport. Keyboard hints are dropped
    because there is no keyboard; everything they describe has a touch gesture.
    ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   PHONE. The desktop layout puts the narrative and the credibility numbers in
+   the margins either side of the map. There are no margins on a phone, so they
+   were stacked into the masthead instead — which grew to ~560px, and with the
+   panel holding 46vh the two overlapped and left the map, the actual product,
+   with no usable area at all.
+   The map gets the screen here. Everything else is compact, one row where it
+   can be, and the panel starts down.
+   ------------------------------------------------------------------------- */
 @media (max-width:860px){
-  #brand{top:12px;left:14px;right:14px}
-  #brand h1{font-size:30px}
-  #brand .eyebrow,#brand .tag{font-size:8.5px;letter-spacing:.18em}
-  #brand .date{font-size:16px;margin-top:5px}
-  #legend{max-width:none;margin-top:9px}
+  #brand{top:10px;left:12px;right:12px}
+  #brand h1{font-size:26px;line-height:1.05}
+  #brand .eyebrow{font-size:8px;letter-spacing:.16em}
+  #brand .tag{font-size:8.5px;letter-spacing:.14em;
+    /* the claim is two lines at most; the rest is in the panel */
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #brand .date{font-size:15px;margin-top:4px}
   #hint{display:none}
+  #status{display:none}
 
-  #rail{top:auto;left:0;right:0;bottom:0;width:auto;height:46vh;
+  /* chain chips double as filters, so they stay reachable — but on one line
+     that scrolls, rather than wrapping to two rows of the vertical budget */
+  #legend{max-width:none;margin-top:7px;flex-wrap:nowrap;overflow-x:auto;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:1px}
+  #legend::-webkit-scrollbar{display:none}
+  #legend .row{flex:0 0 auto}
+
+  /* clamped rather than dropped: it is the one sentence a non-specialist came
+     for, and the full text is still in the panel's Rank note */
+  #narrative{position:static;margin:7px 0 0;text-align:left;font-size:11px;
+    line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;
+    -webkit-box-orient:vertical;overflow:hidden}
+  #creds{position:static;margin:7px 0 0;gap:13px}
+  #creds .v{font-size:14px}
+  #creds .k{font-size:6.5px;max-width:62px;line-height:1.25}
+
+  /* The head gutter those belong in only exists on the desktop rail. On a sheet
+     with no top padding the title lands directly on the tabs, and vertical space
+     is too scarce here to buy one back for a label the tabs already give. */
+  #rail::before,#rail::after{display:none}
+
+  /* bottom sheet. It starts down — see engine.js — so the map opens full-bleed */
+  #rail{top:auto;left:0;right:0;bottom:0;width:auto;height:50vh;
     border-left:0;border-top:1px solid var(--line);padding:0 0 8px;
     transform:translateY(0)}
   #rail.hidden{transform:translateY(100%)}
   #board{height:560px;overflow:visible}
   .pane{overflow-y:auto;-webkit-overflow-scrolling:touch}
 
-  #railToggle{top:auto;right:14px;bottom:calc(46vh + 10px);
+  /* 44px minimum touch target on every control — the tabs were 12px of padding
+     around 10px type, which is a miss on a phone more often than a hit */
+  #railToggle{top:auto;right:12px;bottom:calc(50vh + 10px);padding:11px 14px;
     transition:bottom .32s cubic-bezier(.4,0,.2,1),background .15s}
-  #railToggle.out{right:14px;bottom:14px}
+  #railToggle.out{right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  #tabs button{font-size:9.5px;letter-spacing:.08em;padding:14px 2px;min-height:44px}
+  #play,#speed{min-height:40px}
 
-  #transport{left:14px;right:14px;width:auto;transform:none;
-    bottom:calc(46vh + 52px);transition:bottom .32s cubic-bezier(.4,0,.2,1)}
-  #transport.wide{width:auto;bottom:56px}
-
-  /* the sheet covers the bottom-left corner, and the run stats are repeated in
-     the credibility strip — drop the duplicate rather than stack it underneath */
-  #status{display:none}
-  #card{max-width:min(250px,calc(100vw - 28px))}
-  #tabs button{font-size:10px;letter-spacing:.1em;padding:12px 2px}
-  /* the narrative and the numbers are the point — they stay, stacked under the
-     brand where there is width for them, rather than floating over the map */
-  #narrative{position:static;margin:11px 0 0;text-align:left;font-size:12px}
-  #creds{position:static;margin:12px 0 0;gap:16px}
-  #creds .v{font-size:16px}
-  #creds .k{font-size:7.5px;max-width:78px}
+  #transport{left:12px;right:12px;width:auto;transform:none;
+    bottom:calc(50vh + 52px);transition:bottom .32s cubic-bezier(.4,0,.2,1)}
+  #transport.wide{width:auto;
+    bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  #track{height:34px}                 /* a thicker grab area for a thumb */
+  #card{max-width:min(250px,calc(100vw - 24px))}
 }
+/* Landscape phone, and anything else short. Height is the scarce axis here, and
+   the masthead as laid out above takes 54% of a 375px viewport — the map ends up
+   overlapping both the header and the transport. Someone who turns their phone
+   sideways did it to see more map, so the prose goes and the claim stays. The
+   numbers are still in the panel. */
+@media (max-height:500px) and (max-width:900px){
+  #brand{top:8px;left:12px;right:12px}
+  #brand h1{font-size:19px}
+  #brand .eyebrow{font-size:7.5px}
+  /* one clean line: a 1-line clamp left 0.4px of the next line showing,
+     which reads as a smudge under the claim */
+  #brand .tag{font-size:8px;display:block;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;max-width:none}
+  #brand .date{font-size:13px;margin-top:2px}
+  #legend{margin-top:5px}
+  #legend .row{padding:3px 7px;font-size:8.5px}
+  #narrative,#creds{display:none}
+
+  #rail{height:76vh}
+  #railToggle{bottom:calc(76vh + 8px);padding:8px 12px}
+  #railToggle.out{bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  #transport{bottom:calc(76vh + 46px);gap:8px}
+  #transport.wide{bottom:calc(52px + env(safe-area-inset-bottom,0px));padding:7px 12px}
+  #track{height:26px}
+  #play,#speed{padding:7px 9px;font-size:9px;min-height:34px}
+  #tabs button{padding:10px 2px;min-height:38px}
+}
+
 @media (max-width:420px){
-  #brand h1{font-size:25px}
-  #rail,#railToggle,#transport{--sheet:52vh}
-  #rail{height:52vh}
-  #railToggle{bottom:calc(52vh + 10px)}
-  #transport{bottom:calc(52vh + 52px);gap:8px}
-  #play,#speed{padding:7px 9px;font-size:9px}
+  #brand h1{font-size:23px}
+  #brand .tag{-webkit-line-clamp:2}
+  #rail{height:56vh}
+  #railToggle{bottom:calc(56vh + 10px)}
+  #transport{bottom:calc(56vh + 52px);gap:8px}
+  #play,#speed{padding:9px 10px;font-size:9px}
+  #creds{gap:11px}
+  #creds .k{max-width:56px}
 }
 </style>
 </head>
@@ -443,6 +502,7 @@ const D = {"days":["2026-07-05","2026-07-06","2026-07-07","2026-07-08","2026-07-
       Nodes never move in world space: scrubbing animates size/glow/edges only.
    ========================================================================= */
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d',{alpha:false});
+const brand=document.getElementById('brand');   // masthead; fit() measures it on mobile
 const N=D.days.length, LAST=N-1, NODE={};
 D.nodes.forEach(n=>NODE[n.id]=n);
 const IN={}, OUT={};                       // adjacency for the hover card
@@ -498,7 +558,13 @@ function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight
   cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
 /* Fit every node inside the *visible* area — the right rail covers part of the
    canvas, so the usable box is inset on that side and the camera centres on it. */
-const MOBILE=()=>matchMedia('(max-width:860px)').matches;
+/* matchMedia constructs a fresh MediaQueryList on every call and draw() asked
+   once a frame, which is a per-frame allocation and a style query for a value
+   that changes only when the window does. Hold one and let it report. */
+const MOBILE_MQ=matchMedia('(max-width:860px)');
+let IS_MOBILE=MOBILE_MQ.matches;
+MOBILE_MQ.addEventListener('change',e=>{IS_MOBILE=e.matches;resize();fit(true);});
+const MOBILE=()=>IS_MOBILE;
 /* horizontal extent of canvas the rail does not sit on top of */
 const railOpen=()=>!rail.classList.contains('hidden');
 let VIEWL=0, VIEWR=0;
@@ -512,7 +578,17 @@ function fit(animate){
   const mob=MOBILE(), open=!rail.classList.contains('hidden');
   const railW = (open&&!mob) ? rail.offsetWidth  : 0;
   const railH = (open&&mob)  ? rail.offsetHeight : 0;
-  const padL=34, padR=railW+34, padT=mob?152:118, padB=railH+(mob?28:104);
+  /* padT clears the masthead. On a phone that is the wordmark, the claim, the
+     chain chips, the narrative and the credibility row stacked, which measures
+     far more than the 152px this used to assume — the map was being centred
+     underneath its own header. Measure it instead of guessing. */
+  /* On a short viewport the masthead is deliberately smaller, but cap the
+     reservation anyway so a tall header can never squeeze the map to nothing. */
+  const brandH = mob ? Math.min(H*(H<500?0.30:0.42),
+                                brand.getBoundingClientRect().height+18) : 0;
+  const padL=mob?16:34, padR=railW+(mob?16:34),
+        padT=mob?Math.max(120,brandH):118,
+        padB=railH+(mob?96:104);
   const availW=Math.max(200,W-padL-padR), availH=Math.max(200,H-padT-padB);
   /* Bound the node CENTRES and add one modest world-space margin. Reserving each
      node's largest-ever ring over-shrinks the whole map for a handful of mega-caps. */
@@ -821,10 +897,23 @@ function draw(t){
         const tag=`NEW ${Math.max(0,Math.round(ageAt(n,t)))}D`;
         ctx.font=`700 9px "JetBrains Mono",monospace`;
         const tw=textW(tag,9);
-        ctx.globalAlpha=dim(n.id);ctx.fillStyle=ACCENT;
-        ctx.fillRect(x-tw/2-4,y-mr-14,tw+8,11);
-        ctx.fillStyle=VOID;ctx.textAlign='center';
-        ctx.fillText(tag,x,y-mr-5.5);
+        /* These were drawn without consulting the label collision set, so two
+           new tokens entering close together stacked their tags into an
+           unreadable smear — which a phone, where the same map is a third of
+           the width, hits far more often. Claim the box like any other label:
+           ORDER runs highest-rank first, so the bigger token keeps the spot. */
+        const tb=[x-tw/2-5,y-mr-15,x+tw/2+5,y-mr-2];
+        let tclash=false;
+        for(const b of LABELS){
+          if(tb[0]<b[2]&&tb[2]>b[0]&&tb[1]<b[3]&&tb[3]>b[1]){tclash=true;break;}
+        }
+        if(!tclash){
+          LABELS.push(tb);
+          ctx.globalAlpha=dim(n.id);ctx.fillStyle=ACCENT;
+          ctx.fillRect(x-tw/2-4,y-mr-14,tw+8,11);
+          ctx.fillStyle=VOID;ctx.textAlign='center';
+          ctx.fillText(tag,x,y-mr-5.5);
+        }
         ctx.font=`600 ${labelFs}px "Chakra Petch",sans-serif`;   // restore label font
       }
     }
@@ -1383,7 +1472,15 @@ function paintRail(t,force){
   els.forEach((el,i)=>setTimeout(()=>el.classList.add('on'),i*150));
   setTimeout(()=>document.getElementById('boot').classList.add('done'),900);
 })();
-addEventListener('resize',()=>{resize();fit(true);});
+/* On a phone the panel and the map cannot both have the screen: the sheet is
+   half the viewport, and what is left is not enough map to read. The map is the
+   product, so the sheet starts down and the toggle invites it back up. On a
+   desktop there is width for both and nothing changes. */
+if(MOBILE()&&railOpen())toggleRail();
+
+/* An orientation change resizes the window but the new dimensions are not
+   readable until the next frame, so refit after one rather than on the event. */
+addEventListener('resize',()=>{resize();requestAnimationFrame(()=>fit(true));});
 resize(); rebuildOrder(); fit(false); requestAnimationFrame(frame);
 
 </script>

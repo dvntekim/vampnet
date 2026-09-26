@@ -289,48 +289,107 @@ canvas.drag{cursor:grabbing}
    the map keeps the upper half of the viewport. Keyboard hints are dropped
    because there is no keyboard; everything they describe has a touch gesture.
    ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   PHONE. The desktop layout puts the narrative and the credibility numbers in
+   the margins either side of the map. There are no margins on a phone, so they
+   were stacked into the masthead instead — which grew to ~560px, and with the
+   panel holding 46vh the two overlapped and left the map, the actual product,
+   with no usable area at all.
+   The map gets the screen here. Everything else is compact, one row where it
+   can be, and the panel starts down.
+   ------------------------------------------------------------------------- */
 @media (max-width:860px){
-  #brand{top:12px;left:14px;right:14px}
-  #brand h1{font-size:30px}
-  #brand .eyebrow,#brand .tag{font-size:8.5px;letter-spacing:.18em}
-  #brand .date{font-size:16px;margin-top:5px}
-  #legend{max-width:none;margin-top:9px}
+  #brand{top:10px;left:12px;right:12px}
+  #brand h1{font-size:26px;line-height:1.05}
+  #brand .eyebrow{font-size:8px;letter-spacing:.16em}
+  #brand .tag{font-size:8.5px;letter-spacing:.14em;
+    /* the claim is two lines at most; the rest is in the panel */
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #brand .date{font-size:15px;margin-top:4px}
   #hint{display:none}
+  #status{display:none}
 
-  #rail{top:auto;left:0;right:0;bottom:0;width:auto;height:46vh;
+  /* chain chips double as filters, so they stay reachable — but on one line
+     that scrolls, rather than wrapping to two rows of the vertical budget */
+  #legend{max-width:none;margin-top:7px;flex-wrap:nowrap;overflow-x:auto;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:1px}
+  #legend::-webkit-scrollbar{display:none}
+  #legend .row{flex:0 0 auto}
+
+  /* clamped rather than dropped: it is the one sentence a non-specialist came
+     for, and the full text is still in the panel's Rank note */
+  #narrative{position:static;margin:7px 0 0;text-align:left;font-size:11px;
+    line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;
+    -webkit-box-orient:vertical;overflow:hidden}
+  #creds{position:static;margin:7px 0 0;gap:13px}
+  #creds .v{font-size:14px}
+  #creds .k{font-size:6.5px;max-width:62px;line-height:1.25}
+
+  /* The head gutter those belong in only exists on the desktop rail. On a sheet
+     with no top padding the title lands directly on the tabs, and vertical space
+     is too scarce here to buy one back for a label the tabs already give. */
+  #rail::before,#rail::after{display:none}
+
+  /* bottom sheet. It starts down — see engine.js — so the map opens full-bleed */
+  #rail{top:auto;left:0;right:0;bottom:0;width:auto;height:50vh;
     border-left:0;border-top:1px solid var(--line);padding:0 0 8px;
     transform:translateY(0)}
   #rail.hidden{transform:translateY(100%)}
   #board{height:560px;overflow:visible}
   .pane{overflow-y:auto;-webkit-overflow-scrolling:touch}
 
-  #railToggle{top:auto;right:14px;bottom:calc(46vh + 10px);
+  /* 44px minimum touch target on every control — the tabs were 12px of padding
+     around 10px type, which is a miss on a phone more often than a hit */
+  #railToggle{top:auto;right:12px;bottom:calc(50vh + 10px);padding:11px 14px;
     transition:bottom .32s cubic-bezier(.4,0,.2,1),background .15s}
-  #railToggle.out{right:14px;bottom:14px}
+  #railToggle.out{right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  #tabs button{font-size:9.5px;letter-spacing:.08em;padding:14px 2px;min-height:44px}
+  #play,#speed{min-height:40px}
 
-  #transport{left:14px;right:14px;width:auto;transform:none;
-    bottom:calc(46vh + 52px);transition:bottom .32s cubic-bezier(.4,0,.2,1)}
-  #transport.wide{width:auto;bottom:56px}
-
-  /* the sheet covers the bottom-left corner, and the run stats are repeated in
-     the credibility strip — drop the duplicate rather than stack it underneath */
-  #status{display:none}
-  #card{max-width:min(250px,calc(100vw - 28px))}
-  #tabs button{font-size:10px;letter-spacing:.1em;padding:12px 2px}
-  /* the narrative and the numbers are the point — they stay, stacked under the
-     brand where there is width for them, rather than floating over the map */
-  #narrative{position:static;margin:11px 0 0;text-align:left;font-size:12px}
-  #creds{position:static;margin:12px 0 0;gap:16px}
-  #creds .v{font-size:16px}
-  #creds .k{font-size:7.5px;max-width:78px}
+  #transport{left:12px;right:12px;width:auto;transform:none;
+    bottom:calc(50vh + 52px);transition:bottom .32s cubic-bezier(.4,0,.2,1)}
+  #transport.wide{width:auto;
+    bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  #track{height:34px}                 /* a thicker grab area for a thumb */
+  #card{max-width:min(250px,calc(100vw - 24px))}
 }
+/* Landscape phone, and anything else short. Height is the scarce axis here, and
+   the masthead as laid out above takes 54% of a 375px viewport — the map ends up
+   overlapping both the header and the transport. Someone who turns their phone
+   sideways did it to see more map, so the prose goes and the claim stays. The
+   numbers are still in the panel. */
+@media (max-height:500px) and (max-width:900px){
+  #brand{top:8px;left:12px;right:12px}
+  #brand h1{font-size:19px}
+  #brand .eyebrow{font-size:7.5px}
+  /* one clean line: a 1-line clamp left 0.4px of the next line showing,
+     which reads as a smudge under the claim */
+  #brand .tag{font-size:8px;display:block;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;max-width:none}
+  #brand .date{font-size:13px;margin-top:2px}
+  #legend{margin-top:5px}
+  #legend .row{padding:3px 7px;font-size:8.5px}
+  #narrative,#creds{display:none}
+
+  #rail{height:76vh}
+  #railToggle{bottom:calc(76vh + 8px);padding:8px 12px}
+  #railToggle.out{bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  #transport{bottom:calc(76vh + 46px);gap:8px}
+  #transport.wide{bottom:calc(52px + env(safe-area-inset-bottom,0px));padding:7px 12px}
+  #track{height:26px}
+  #play,#speed{padding:7px 9px;font-size:9px;min-height:34px}
+  #tabs button{padding:10px 2px;min-height:38px}
+}
+
 @media (max-width:420px){
-  #brand h1{font-size:25px}
-  #rail,#railToggle,#transport{--sheet:52vh}
-  #rail{height:52vh}
-  #railToggle{bottom:calc(52vh + 10px)}
-  #transport{bottom:calc(52vh + 52px);gap:8px}
-  #play,#speed{padding:7px 9px;font-size:9px}
+  #brand h1{font-size:23px}
+  #brand .tag{-webkit-line-clamp:2}
+  #rail{height:56vh}
+  #railToggle{bottom:calc(56vh + 10px)}
+  #transport{bottom:calc(56vh + 52px);gap:8px}
+  #play,#speed{padding:9px 10px;font-size:9px}
+  #creds{gap:11px}
+  #creds .k{max-width:56px}
 }
 </style>
 </head>
