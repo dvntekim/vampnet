@@ -100,3 +100,47 @@ Month 2 onward, an MVP runs at ~1,400/month — still inside Pro.
 Flexi-credit pricing at volume is still unpublished. It only matters for path C (scaled),
 where you'd need ~3,000/month beyond the plan allowance. Worth asking before committing to
 250 wallets or multi-chain.
+
+---
+
+## What the live daily job actually costs — measured 2026-09-28
+
+The estimates above were written before anything shipped. These are the real numbers from
+the job that has been running unattended since 22 September.
+
+| Stage | Calls | Credits |
+|---|---:|---:|
+| `historical-balances` — cohort refresh | ~1,100 wallet-chain windows | ~2,200 |
+| `token-ohlcv` — market caps for drawn tokens | 80 | 80 |
+| **Total per run** | | **~2,280** |
+
+Before adaptive polling the same run cost **2,960**.
+
+### The three levers, and which ones actually pay
+
+**Adaptive polling — real, 23%.** `historical-balances` returns a date range rather than a
+snapshot, which is the property the whole thing rests on: a day skipped today is recovered in
+full by widening tomorrow's window, so polling a still wallet less often loses nothing. On the
+live cohort, 405 of 739 wallets had changed a holding within a day, and **162 had not moved in
+over a week**. Cadence is 1 / 2 / 3 days by how long a wallet has been still, each wallet's
+window is widened by exactly its own cadence, and the phase offset is a CRC of the address so
+it is stable between processes — `hash()` is seeded per run and would re-phase every wallet
+nightly, which would let one fall outside the window its cadence widened for.
+
+The cost is freshness: a dormant wallet that wakes is invisible for up to its cadence. That is
+why the slowest is 3 days and not a fortnight.
+
+**Narrower ohlcv windows — no credits, much less time.** Billed per call, not per bar, so
+asking for 141 days or 3 costs the same 1 credit. But the full window re-read ~11,000
+immutable bars a night and was most of a ~55-minute run.
+
+**Bigger pages — already taken.** `per_page` accepts 1,000 for the same cost as 100. The
+remaining risk is the page *cap*: running out of pages before the API runs out of rows
+truncates silently, so `fetch.truncated` records every window that hit it.
+
+### What does not work
+- Dropping wallets by capital. Edges are counted in shared wallets, not dollars; the 439-wallet
+  tail holds 11% of the capital and far more than 11% of the rotations. Cutting it took daily
+  edge counts from ~150 to 20.
+- Reaching further back for more validation windows. `token-screener` retains two months of
+  daily data and refuses older ranges outright (see [STABILITY.md](STABILITY.md)).

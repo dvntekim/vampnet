@@ -9,7 +9,7 @@ Vampnet — end-to-end build.
 Every stage hits the Nansen API directly. Nothing is pre-baked except the cache
 in data/, which --build reads and --demo/--full regenerate.
 """
-import sys, os, json, time, argparse, collections, datetime as dt
+import sys, os, json, time, zlib, argparse, collections, datetime as dt
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
 from nansen import call
 from fetch_balances import fetch
@@ -250,6 +250,35 @@ def _wallet_capital(idx, sym):
                                 for w, d in by_wallet_day.items()})
 
 
+def _phase(wallet):
+    """A stable per-wallet offset in [0, 255]. zlib.crc32 is deterministic across
+    processes; hash() is not, and the polling window depends on it."""
+    return zlib.crc32(wallet.encode()) & 0xFF
+
+
+def _last_change(idx):
+    """The last day each wallet's holdings actually differed from the day before.
+
+    A wallet whose amounts are identical across every recent day has not traded,
+    whatever its balance is worth, and re-reading it daily buys nothing."""
+    hold = collections.defaultdict(dict)
+    for key, by_day in idx.items():
+        for day, holders in by_day.items():
+            for wallet, v in holders.items():
+                hold[wallet].setdefault(day, {})[key] = v[0]
+    out = {}
+    for wallet, by_day in hold.items():
+        seq = sorted(by_day)
+        prev, last = None, seq[0]
+        for day in seq:
+            cur = by_day[day]
+            if prev is not None and cur != prev:
+                last = day
+            prev = cur
+        out[wallet] = last
+    return out
+
+
 def step_daily(cfg, B):
     """Append new days for the highest-capital wallets, then rebuild."""
     if not os.path.exists(CACHE()):
@@ -280,16 +309,51 @@ def step_daily(cfg, B):
             for wallet in holders:
                 active[wallet].add(key[0])
 
-    since = cfg.get("since") or (
-        dt.date.fromisoformat(days[-1]) - dt.timedelta(days=OVERLAP_DAYS)).isoformat()
-    window = {"from": since, "to": dt.date.today().isoformat()}
-    log("2/4", f"refreshing top {len(wallets)} wallets over {window['from']} → {window['to']}")
+    # ---- adaptive polling -------------------------------------------------
+    # historical-balances returns a DATE RANGE, not a snapshot, so a day skipped
+    # today is recovered in full by widening tomorrow's window. That makes it
+    # free to poll a wallet that has not moved in three weeks less often than one
+    # that traded this morning — and 22% of the cohort had not moved in over a
+    # week, so a flat daily sweep spent a fifth of its budget re-reading
+    # unchanged rows.
+    #
+    # Each wallet's window is widened by exactly its own cadence, so whenever it
+    # is due the fetch still covers every day since it was last read. Nothing is
+    # lost; it arrives later. The cost is freshness on a dormant wallet that
+    # wakes up, which is why the slowest cadence is 3 days and not a fortnight.
+    today = dt.date.today()
+    last_change = _last_change(idx)
+    forced = bool(cfg.get("since"))
+    due, cadence = [], {}
+    for w in wallets:
+        age = (today - dt.date.fromisoformat(last_change.get(w, days[0]))).days
+        c = 1 if age <= 3 else 2 if age <= 14 else 3
+        cadence[w] = c
+        # Spread each cadence group across days instead of bunching every dormant
+        # wallet onto one run. The offset must be STABLE: Python seeds hash()
+        # per process, so using it would re-phase every wallet on every run and
+        # a wallet could fall outside the window its cadence widened for.
+        if forced or c == 1 or (today.toordinal() + _phase(w)) % c == 0:
+            due.append(w)
+
+    def win(w):
+        if forced:
+            return {"from": cfg["since"], "to": today.isoformat()}
+        back = OVERLAP_DAYS + cadence[w]
+        return {"from": (dt.date.fromisoformat(days[-1]) - dt.timedelta(days=back)).isoformat(),
+                "to": today.isoformat()}
+
+    skipped = len(wallets) - len(due)
+    wallets = due
+    log("2/4", f"refreshing {len(wallets)} of {len(cadence)} wallets "
+               f"({skipped} still, due later) through {today.isoformat()}")
 
     fetched = 0
     for i, wallet in enumerate(wallets, 1):
         if B.used >= B.cap:
             log("2/4", f"credit cap {B.cap} reached at wallet {i} — keeping what was fetched")
             break
+        window = win(wallet)
         for chain in sorted(active.get(wallet, ())):
             try:
                 rows, used, _rem, st = fetch(wallet, chain, window, cap_pages=cfg["pages"])
@@ -302,6 +366,9 @@ def step_daily(cfg, B):
         if i % 50 == 0:
             log("2/4", f"{i}/{len(wallets)} wallets · {B.used} credits")
 
+    if fetch.truncated:
+        log("2/4", f"!! {len(fetch.truncated)} wallet-chain windows hit the "
+                   f"{cfg['pages']}-page cap and were truncated — raise `pages`")
     new_days = trim_window(idx, WINDOW_DAYS)
     log("2/4", f"merged {fetched:,} rows · timeline now {new_days[0]} → {new_days[-1]}")
     save_cache(idx, sym, CACHE())
@@ -329,12 +396,26 @@ def _daily_mcap(cfg, idx, sym, B):
         peak[key] = max((sum(v[1] for v in ws.values()) for ws in by_day.values()), default=0)
     top = sorted(peak, key=lambda k: -peak[k])[:cfg["tokens"]]
     days = sorted({d for k in idx for d in idx[k]})
-    window = {"from": days[0], "to": days[-1]}
     refreshed = 0
     for key in top:
         chain, address = key
         if B.exhausted():
             break
+        # A past day's close does not change, and we already hold it. Asking for
+        # the whole 141-day window every run re-read ~11,000 bars a night for
+        # nothing — same credit either way, since ohlcv is billed per call, but
+        # it was most of why a run took the better part of an hour. Ask only for
+        # what is missing, and fall back to the full window when the series is
+        # new or has a hole at the end.
+        have = mc.get(f"{chain}:{address}") or {}
+        start = days[0]
+        if have:
+            newest = max(have)
+            if newest >= days[-1]:
+                continue                        # already current, no call needed
+            start = max(days[0],
+                        (dt.date.fromisoformat(newest) - dt.timedelta(days=2)).isoformat())
+        window = {"from": start, "to": days[-1]}
         st, b, h = call("/api/v1/tgm/token-ohlcv", {
             "chain": chain, "token_address": address,
             "timeframe": "1d", "date": window})

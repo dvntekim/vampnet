@@ -29,6 +29,31 @@ is no product — not a missing chart, no product.**
 - `token-screener` daily data has a **2-month retention wall**; `pnl-leaderboard` has none
 - Base58 (Solana) addresses are **case-sensitive** while EVM is not — silently zeroed five tokens until caught
 
+**Three ways the backend spends the API better than a straight integration:**
+
+1. **Adaptive polling, which the endpoint's own shape makes free.**
+   `historical-balances` returns a **date range, not a snapshot**, so a day skipped today is
+   recovered in full by widening tomorrow's window — nothing is lost, it arrives later. That
+   makes it safe to read a wallet that has not moved in three weeks less often than one that
+   traded this morning. Measured on the live cohort: **22% of the 739 wallets had not changed
+   a holding in over a week**, and a flat daily sweep spent a fifth of its budget re-reading
+   unchanged rows. Each wallet's window is widened by exactly its own cadence, so whenever it
+   comes due the fetch still covers every day since it was last read. **561 of 739 wallets per
+   run instead of all of them — 23% fewer credits, provably without gaps.**
+
+2. **Ask only for the bars we do not already hold.** `token-ohlcv` is billed per *call*, not
+   per *bar*, so the cost is identical either way — but re-requesting the whole 141-day window
+   for 80 tokens every night re-read ~11,000 bars that cannot change, and was most of why a
+   run took the better part of an hour. A past close is immutable and already cached; the
+   window now starts where the series ends.
+
+3. **Count the truncation the API does not report.** Paginated balance fetches stop at a page
+   cap. Running out of pages before the API runs out of rows drops holdings *silently*, and a
+   wallet that quietly loses half its tokens takes its co-occurrences — and therefore its
+   edges — with it. Nothing in the response says this happened, so `fetch` records every
+   window that hit the cap and the run prints the count. We already lost a week of the map to
+   one silent-coverage bug; this is the tripwire for the next one.
+
 **Two methodological choices Nansen forced:**
 1. **Balances, not swaps.** Our first architecture traced DEX swaps and broke: on BNB launchpad
    tokens the settlement path isn't classified as a DEX trade, so a wallet holding **$1.2M
