@@ -69,7 +69,7 @@
         "scope": "Token-day events across the 95-frame window where a token the cohort entered within 14 days receives a rotation of at least 3 shared wallets from an established top-20 name. Counted against the top-10 edge cap the renderer would otherwise apply, replaying engine.js's own edgeAt selection frame by frame. Counts events, not distinct pairs: one pair persisting over several days counts once per day, which is what the cap discards it on.",
         "source": "data/bubbles80.json",
         "script": "research/scripts/fresh_inflows.py",
-        "verified": "2026-10-08"
+        "verified": "2026-10-09"
     },
     "independent_calls": {
         "value": 64,
