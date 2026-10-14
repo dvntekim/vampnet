@@ -348,7 +348,8 @@ def step_daily(cfg, B):
     log("2/4", f"refreshing {len(wallets)} of {len(cadence)} wallets "
                f"({skipped} still, due later) through {today.isoformat()}")
 
-    fetched = 0
+    fetched = failed = attempts = 0
+    last_st = None
     for i, wallet in enumerate(wallets, 1):
         if B.used >= B.cap:
             log("2/4", f"credit cap {B.cap} reached at wallet {i} — keeping what was fetched")
@@ -360,12 +361,26 @@ def step_daily(cfg, B):
             except Exception:
                 continue          # transport failure on one chain is not fatal
             B.used += used
+            attempts += 1
+            last_st = st
             if st == 200 and rows:
                 merge_rows(idx, sym, wallet, chain, rows)
                 fetched += len(rows)
+            elif st != 200:
+                failed += 1
         if i % 50 == 0:
             log("2/4", f"{i}/{len(wallets)} wallets · {B.used} credits")
 
+    # An exhausted key returns 403 on every call, and the loop above simply skips
+    # a wallet whose fetch failed. The run then exits 0 having merged almost
+    # nothing, and publishes a map that quietly empties out day by day — which is
+    # exactly what happened once the credits ran out. Refuse to publish instead.
+    if attempts and failed >= attempts * 0.5:
+        raise SystemExit(
+            f"\n!! {failed} of {attempts} wallet-chain fetches failed "
+            f"(last status {last_st}). "
+            "Refusing to rebuild from a partial refresh — the published map would "
+            "lose its newest days silently. Check the API key's credit balance.")
     if fetch.truncated:
         log("2/4", f"!! {len(fetch.truncated)} wallet-chain windows hit the "
                    f"{cfg['pages']}-page cap and were truncated — raise `pages`")

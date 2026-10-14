@@ -151,12 +151,20 @@ def _build(idx, sym, mcser, top_n=26, min_peak=30000):
     def _edges_on(i):
         return sum(1 for e in edges if e["w"][i] >= 2)
     while len(days) > 10:
+        last = _edges_on(len(days) - 1)
         if days[-1] >= _dt.date.today().isoformat():
             pass                                   # today is partial by definition
+        elif last == 0:
+            # A frame with no rotations at all is never worth opening on, whatever
+            # the week behind it looks like. The relative test below could not see
+            # this: once an outage ran long enough, the prior week's median was
+            # itself 0, `not median` short-circuited, and six consecutive empty
+            # days were published with the map opening on the emptiest of them.
+            pass
         else:
             prior = sorted(_edges_on(i) for i in range(len(days) - 8, len(days) - 1))
             median = prior[len(prior) // 2]
-            if not median or _edges_on(len(days) - 1) >= median * SETTLED_FRACTION:
+            if not median or last >= median * SETTLED_FRACTION:
                 break
         days = days[:-1]
         for e in edges: e["w"] = e["w"][:-1]
